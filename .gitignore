@@ -1,7 +1,41 @@
+# Python
 .venv/
 venv/
 env/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Entorno
 .env
+.env.*
+
+# IDEs
 .vscode/
+.idea/
+*.swp
+*.swo
+
+# Proyecto — archivos generados automáticamente
+embeddings_cache.pkl
+temp_captures/
+
+# DeepFace legacy cache (pkl dentro de base_datos)
+base_datos/*.pkl
+
+# Replit
+.replit
+.upm/
+.cache/
+.local/
+.pythonlibs/
+replit.nix
+
+# OS
+.DS_Store
+Thumbs.db
