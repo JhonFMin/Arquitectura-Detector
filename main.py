@@ -8,22 +8,33 @@ import shutil
 import pickle
 import hashlib
 from pathlib import Path
-import requests
-import numpy as np
+
 import cv2
+import numpy as np
+import requests
 from deepface import DeepFace
 
 # ===================== SETTINGS =====================
 ESP32_IP          = "192.168.0.50"   # <-- cambia a la IP de tu ESP32-CAM
 
 # Rutas
-DB_PATH           = Path("base_datos")       # tus carpetas con fotos por persona
+DB_PATH           = Path("base_datos")
 TEMP_DIR          = Path("temp_captures")
 CACHE_FILE        = Path("embeddings_cache.pkl")
 
-# Captura
+# Captura rapida
 BURST_COUNT       = 5
+CAPTURE_QUALITY   = 10              # menor archivo que quality=5, buena para WiFi
+CAPTURE_SIZE      = "vga"           # VGA suele ser suficiente para ArcFace y es mucho mas rapido que XGA
+SAVE_DEBUG_FRAMES = False           # ponlo en True si necesitas guardar temp_captures/
+EARLY_GRANT       = True            # abre en cuanto se cumplan los umbrales
 
+# Tiempos HTTP
+STATUS_TIMEOUT    = 1.0
+CAPTURE_TIMEOUT   = 4.0
+COMMAND_TIMEOUT   = 1.5
+POLL_INTERVAL     = 0.15
+ERROR_RETRY_DELAY = 0.7
 
 # Modelo
 MODEL_NAME        = "ArcFace"
@@ -36,7 +47,7 @@ MIN_BRIGHTNESS    = 20.0
 MAX_BRIGHTNESS    = 245.0
 MIN_FACE_AREA     = 0.01
 
-# Umbrales de decisión (permisivos para ESP32-CAM)
+# Umbrales de decision (permisivos para ESP32-CAM)
 MAX_DISTANCE      = 0.68
 MIN_VALID_FRAMES  = 1
 MIN_HITS          = 1
@@ -45,7 +56,7 @@ MIN_SCORE         = 0.20
 
 # ESP32 URLs
 STATUS_URL  = f"http://{ESP32_IP}/status"
-CAPTURE_URL = f"http://{ESP32_IP}/capture?quality=5&size=xga"
+CAPTURE_URL = f"http://{ESP32_IP}/capture?quality={CAPTURE_QUALITY}&size={CAPTURE_SIZE}&fast=1"
 OPEN_URL    = f"http://{ESP32_IP}/access/open?ms=5000"
 CLOSE_URL   = f"http://{ESP32_IP}/access/close"
 ACK_URL     = f"http://{ESP32_IP}/verify/ack"
@@ -53,9 +64,15 @@ ACK_URL     = f"http://{ESP32_IP}/verify/ack"
 
 last_request_id = -1
 embeddings_cache: dict = {}
+http = requests.Session()
+http.headers.update({"Connection": "keep-alive"})
+
+FACE_CASCADE = cv2.CascadeClassifier(
+    str(Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml")
+)
 
 
-# ───────────────────────── CACHE DE EMBEDDINGS ──────────────────────────
+# ------------------------- CACHE DE EMBEDDINGS -------------------------
 
 def _file_hash(path: Path) -> str:
     h = hashlib.md5()
@@ -63,16 +80,42 @@ def _file_hash(path: Path) -> str:
         h.update(f.read())
     return h.hexdigest()
 
+
+def _is_path(value) -> bool:
+    return isinstance(value, (str, Path))
+
+
+def _source_label(source) -> str:
+    if _is_path(source):
+        return Path(source).name
+    return "frame_memoria"
+
+
+def _deepface_input(source):
+    return str(source) if _is_path(source) else source
+
+
+def _load_image_bgr(source):
+    if _is_path(source):
+        return cv2.imread(str(source))
+    if isinstance(source, np.ndarray):
+        return source
+    return None
+
+
 def load_cache():
-    global embeddings_cache
-    if CACHE_FILE.exists():
-        try:
-            with open(CACHE_FILE, "rb") as f:
-                embeddings_cache = pickle.load(f)
-            print(f"[CACHE] Cargados {len(embeddings_cache)} embeddings desde disco")
-        except Exception as e:
-            print(f"[CACHE] No se pudo cargar cache: {e}")
-            embeddings_cache = {}
+    if not CACHE_FILE.exists():
+        return
+    try:
+        with open(CACHE_FILE, "rb") as f:
+            loaded = pickle.load(f)
+        embeddings_cache.clear()
+        embeddings_cache.update(loaded)
+        print(f"[CACHE] Cargados {len(embeddings_cache)} embeddings desde disco")
+    except Exception as e:
+        print(f"[CACHE] No se pudo cargar cache: {e}")
+        embeddings_cache.clear()
+
 
 def save_cache():
     try:
@@ -81,26 +124,35 @@ def save_cache():
     except Exception as e:
         print(f"[CACHE] Error guardando cache: {e}")
 
-def get_embedding(img_path: Path):
-    key = str(img_path)
-    current_hash = _file_hash(img_path)
-    cached = embeddings_cache.get(key)
-    if cached and cached.get("hash") == current_hash:
-        return cached["embedding"]
+
+def get_embedding(source):
+    cache_key = None
+    current_hash = None
+
+    if _is_path(source):
+        img_path = Path(source)
+        cache_key = str(img_path)
+        current_hash = _file_hash(img_path)
+        cached = embeddings_cache.get(cache_key)
+        if cached and cached.get("hash") == current_hash:
+            return cached["embedding"]
+
     try:
         result = DeepFace.represent(
-            img_path=str(img_path),
+            img_path=_deepface_input(source),
             model_name=MODEL_NAME,
             detector_backend=DETECTOR_BACKEND,
             enforce_detection=False,
         )
         if result and len(result) > 0:
             emb = result[0]["embedding"]
-            embeddings_cache[key] = {"embedding": emb, "hash": current_hash}
+            if cache_key:
+                embeddings_cache[cache_key] = {"embedding": emb, "hash": current_hash}
             return emb
     except Exception as e:
-        print(f"[EMBEDDING ERROR] {img_path.name}: {e}")
+        print(f"[EMBEDDING ERROR] {_source_label(source)}: {e}")
     return None
+
 
 def cosine_distance(a, b) -> float:
     va, vb = np.array(a), np.array(b)
@@ -110,14 +162,15 @@ def cosine_distance(a, b) -> float:
     return float(1.0 - np.dot(va, vb) / (norm_a * norm_b))
 
 
-# ───────────────────────── BASE DE DATOS LOCAL ──────────────────────────
-# Lee TODAS las fotos de base_datos/NombrePersona/*.jpg
-# y genera un embedding por foto para comparar contra los frames
+# ------------------------- BASE DE DATOS LOCAL -------------------------
 
 def build_db_embeddings() -> dict:
     db: dict = {}
     exts = {".jpg", ".jpeg", ".png", ".bmp"}
     dirty = False
+
+    if not DB_PATH.exists():
+        return db
 
     for person_dir in sorted(DB_PATH.iterdir()):
         if not person_dir.is_dir():
@@ -139,21 +192,48 @@ def build_db_embeddings() -> dict:
     return db
 
 
-# ───────────────────────── CALIDAD DE FRAME ──────────────────────────
+def _normalized_matrix(embeddings) -> np.ndarray:
+    matrix = np.asarray(embeddings, dtype=np.float32)
+    if matrix.size == 0:
+        return np.empty((0, 0), dtype=np.float32)
+    if matrix.ndim == 1:
+        matrix = matrix.reshape(1, -1)
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    return matrix / norms
 
-def measure_frame_quality(img_path: Path) -> dict:
-    metrics = {
-        "blur": 0.0, "brightness": 0.0, "face_area": 0.0,
-        "has_face": False, "valid": False, "reason": "",
+
+def build_db_index(db_embeddings: dict) -> dict:
+    return {
+        person: _normalized_matrix(embs)
+        for person, embs in db_embeddings.items()
+        if len(embs) > 0
     }
-    img_bgr = cv2.imread(str(img_path))
+
+
+# ------------------------- CALIDAD DE FRAME -------------------------
+
+def measure_frame_quality(source) -> dict:
+    metrics = {
+        "blur": 0.0,
+        "brightness": 0.0,
+        "face_area": 0.0,
+        "has_face": False,
+        "valid": False,
+        "reason": "",
+    }
+    img_bgr = _load_image_bgr(source)
     if img_bgr is None:
         metrics["reason"] = "no_image"
         return metrics
 
-    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    if img_bgr.ndim == 2:
+        gray = img_bgr
+    else:
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
     h, w = gray.shape
-    metrics["blur"]       = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+    metrics["blur"] = float(cv2.Laplacian(gray, cv2.CV_64F).var())
     metrics["brightness"] = float(gray.mean())
 
     if metrics["blur"] < MIN_BLUR:
@@ -166,129 +246,190 @@ def measure_frame_quality(img_path: Path) -> dict:
         metrics["reason"] = f"sobreexpuesto={metrics['brightness']:.1f}"
         return metrics
 
-    try:
-        faces = DeepFace.extract_faces(
-            img_path=str(img_path),
-            detector_backend=DETECTOR_BACKEND,
-            enforce_detection=False,
+    if FACE_CASCADE.empty():
+        metrics["face_area"] = MIN_FACE_AREA
+        metrics["has_face"] = True
+    else:
+        min_side = max(24, int(min(h, w) * 0.07))
+        faces = FACE_CASCADE.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=4,
+            minSize=(min_side, min_side),
         )
-        if faces and faces[0].get("facial_area"):
-            fa = faces[0]["facial_area"]
-            face_pixels = fa.get("w", 0) * fa.get("h", 0)
+        if len(faces) > 0:
+            best = max(faces, key=lambda box: box[2] * box[3])
+            face_pixels = int(best[2]) * int(best[3])
             metrics["face_area"] = face_pixels / (w * h) if (w * h) > 0 else 0.0
-            metrics["has_face"]  = metrics["face_area"] >= MIN_FACE_AREA
-    except Exception:
-        pass
+            metrics["has_face"] = metrics["face_area"] >= MIN_FACE_AREA
 
     if not metrics["has_face"]:
-        metrics["reason"] = f"cara_ausente_o_pequeña={metrics['face_area']:.3f}"
+        metrics["reason"] = f"cara_ausente_o_pequena={metrics['face_area']:.3f}"
         return metrics
 
     metrics["valid"] = True
     return metrics
 
 
-# ───────────────────────── IDENTIFICACIÓN ──────────────────────────
-# Compara el frame contra TODAS las fotos de TODAS las personas en base_datos
-# y elige la persona con menor distancia
+# ------------------------- IDENTIFICACION -------------------------
 
-def identify_frame(frame_path: Path, db_embeddings: dict) -> dict:
+def identify_embedding(frame_embedding, db_embeddings: dict) -> dict:
     result = {"match": False, "person": None, "distance": None, "all_distances": {}}
-    frame_emb = get_embedding(frame_path)
-    if frame_emb is None:
+    frame_vec = np.asarray(frame_embedding, dtype=np.float32)
+    frame_norm = np.linalg.norm(frame_vec)
+    if frame_norm == 0:
         return result
+    frame_vec = frame_vec / frame_norm
 
     best_person = None
-    best_dist   = float("inf")
-    all_dists   = {}
+    best_dist = float("inf")
+    all_dists = {}
 
     for person, embs in db_embeddings.items():
-        # compara contra cada foto de esa persona, toma la menor distancia
-        dists    = [cosine_distance(frame_emb, e) for e in embs]
-        min_dist = min(dists)
+        matrix = _normalized_matrix(embs)
+        if matrix.size == 0:
+            continue
+        similarities = matrix @ frame_vec
+        min_dist = float(1.0 - np.max(similarities))
         all_dists[person] = round(min_dist, 4)
         if min_dist < best_dist:
-            best_dist   = min_dist
+            best_dist = min_dist
             best_person = person
 
     result["all_distances"] = all_dists
 
     if best_person and best_dist <= MAX_DISTANCE:
-        result["match"]    = True
-        result["person"]   = best_person
+        result["match"] = True
+        result["person"] = best_person
         result["distance"] = round(best_dist, 4)
 
     return result
 
 
-# ───────────────────────── CAPTURA ──────────────────────────
+def identify_frame(source, db_embeddings: dict) -> dict:
+    frame_emb = get_embedding(source)
+    if frame_emb is None:
+        return {"match": False, "person": None, "distance": None, "all_distances": {}}
+    return identify_embedding(frame_emb, db_embeddings)
+
+
+# ------------------------- CAPTURA -------------------------
 
 def ensure_temp_dir():
     TEMP_DIR.mkdir(exist_ok=True)
+
 
 def clear_temp_dir():
     if TEMP_DIR.exists():
         shutil.rmtree(TEMP_DIR, ignore_errors=True)
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
+
 def get_status():
-    r = requests.get(STATUS_URL, timeout=5)
+    r = http.get(STATUS_URL, timeout=STATUS_TIMEOUT)
     r.raise_for_status()
     return r.json()
 
+
+def capture_frame(frame_number: int) -> dict:
+    started = time.perf_counter()
+    r = http.get(CAPTURE_URL, timeout=CAPTURE_TIMEOUT)
+    r.raise_for_status()
+
+    raw = r.content
+    img_arr = np.frombuffer(raw, dtype=np.uint8)
+    img_bgr = cv2.imdecode(img_arr, cv2.IMREAD_COLOR)
+    if img_bgr is None:
+        raise ValueError("jpeg_invalido")
+
+    name = f"frame_{frame_number}.jpg"
+    if SAVE_DEBUG_FRAMES:
+        ensure_temp_dir()
+        with open(TEMP_DIR / name, "wb") as f:
+            f.write(raw)
+
+    return {
+        "name": name,
+        "image": img_bgr,
+        "bytes": len(raw),
+        "capture_ms": (time.perf_counter() - started) * 1000.0,
+    }
+
+
 def capture_burst() -> list:
-    clear_temp_dir()
-    files = []
-    for i in range(BURST_COUNT):
+    if SAVE_DEBUG_FRAMES:
+        clear_temp_dir()
+
+    frames = []
+    for i in range(1, BURST_COUNT + 1):
         try:
-            r = requests.get(CAPTURE_URL, timeout=12)
-            r.raise_for_status()
-            img_path = TEMP_DIR / f"frame_{i+1}.jpg"
-            with open(img_path, "wb") as f:
-                f.write(r.content)
-            files.append(img_path)
+            frames.append(capture_frame(i))
         except Exception as e:
-            print(f"[CAPTURA ERROR] frame_{i+1}: {e}")
-    return files
+            print(f"[CAPTURA ERROR] frame_{i}: {e}")
+    return frames
 
 
-# ───────────────────────── LÓGICA DE DECISIÓN ──────────────────────────
+# ------------------------- LOGICA DE DECISION -------------------------
 
-def process_event(files: list, db_embeddings: dict) -> dict:
-    frame_results = []
-    valid_frames  = []
+def _frame_name_and_source(frame, index: int):
+    if isinstance(frame, dict):
+        return frame.get("name", f"frame_{index}.jpg"), frame.get("image"), frame
+    if _is_path(frame):
+        return Path(frame).name, frame, {}
+    return f"frame_{index}.jpg", frame, {}
 
-    for i, fp in enumerate(files, 1):
-        quality    = measure_frame_quality(fp)
-        match_info = {"match": False, "person": None, "distance": None, "all_distances": {}}
 
-        if quality["valid"]:
-            match_info = identify_frame(fp, db_embeddings)
+def process_single_frame(frame, index: int, db_embeddings: dict) -> dict:
+    frame_name, source, meta = _frame_name_and_source(frame, index)
+    quality = measure_frame_quality(source)
+    match_info = {"match": False, "person": None, "distance": None, "all_distances": {}}
 
-        tag_rostro = "SI" if quality["has_face"] else "NO"
-        tag_valido = "SI" if quality["valid"]    else "NO"
-        tag_match  = f"{match_info['person']} dist={match_info['distance']}" if match_info["match"] else "NINGUNO"
+    if quality["valid"]:
+        match_info = identify_frame(source, db_embeddings)
 
-        print(
-            f"[FRAME {i}] rostro={tag_rostro} blur={quality['blur']:.1f} "
-            f"brillo={quality['brightness']:.1f} area={quality['face_area']:.3f} "
-            f"valido={tag_valido} match={tag_match}"
-        )
-        if not quality["valid"]:
-            print(f"         descartado: {quality['reason']}")
+    tag_rostro = "SI" if quality["has_face"] else "NO"
+    tag_valido = "SI" if quality["valid"] else "NO"
+    tag_match = (
+        f"{match_info['person']} dist={match_info['distance']}"
+        if match_info["match"]
+        else "NINGUNO"
+    )
+    capture_ms = meta.get("capture_ms")
+    capture_tag = f" captura={capture_ms:.0f}ms" if capture_ms is not None else ""
+    bytes_tag = f" bytes={meta.get('bytes')}" if meta.get("bytes") is not None else ""
 
-        frame_results.append({"frame": fp.name, "quality": quality, "match": match_info})
-        if quality["valid"]:
-            valid_frames.append(frame_results[-1])
+    print(
+        f"[FRAME {index}] rostro={tag_rostro} blur={quality['blur']:.1f} "
+        f"brillo={quality['brightness']:.1f} area={quality['face_area']:.3f} "
+        f"valido={tag_valido} match={tag_match}{capture_tag}{bytes_tag}"
+    )
+    if not quality["valid"]:
+        print(f"          descartado: {quality['reason']}")
 
+    return {
+        "frame": frame_name,
+        "quality": quality,
+        "match": match_info,
+        "capture_ms": capture_ms,
+        "bytes": meta.get("bytes"),
+    }
+
+
+def evaluate_decision(frame_results: list, log_votes: bool = True) -> dict:
+    valid_frames = [fr for fr in frame_results if fr["quality"]["valid"]]
     n_valid = len(valid_frames)
-    print(f"[FRAMES] total={len(files)} validos={n_valid}")
+
+    if log_votes:
+        print(f"[FRAMES] total={len(frame_results)} validos={n_valid}")
 
     if n_valid < MIN_VALID_FRAMES:
         return {
             "granted": False,
             "reason": f"pocos_frames_validos ({n_valid} < {MIN_VALID_FRAMES})",
-            "winner": None, "scores": {}, "n_valid": n_valid, "frames": frame_results,
+            "winner": None,
+            "scores": {},
+            "n_valid": n_valid,
+            "frames": frame_results,
         }
 
     scores: dict = {}
@@ -297,7 +438,7 @@ def process_event(files: list, db_embeddings: dict) -> dict:
         if not mi["match"]:
             continue
         person = mi["person"]
-        dist   = mi["distance"]
+        dist = mi["distance"]
         if person not in scores:
             scores[person] = {"hits": 0, "distances": [], "best_distance": dist}
         scores[person]["hits"] += 1
@@ -307,10 +448,10 @@ def process_event(files: list, db_embeddings: dict) -> dict:
 
     results = {}
     for person, s in scores.items():
-        hits       = s["hits"]
-        best_dist  = s["best_distance"]
-        avg_dist   = sum(s["distances"]) / len(s["distances"])
-        support    = hits / n_valid
+        hits = s["hits"]
+        best_dist = s["best_distance"]
+        avg_dist = sum(s["distances"]) / len(s["distances"])
+        support = hits / n_valid
         dist_score = max(0.0, 1.0 - (best_dist / MAX_DISTANCE))
         final_score = 0.60 * dist_score + 0.40 * support
 
@@ -322,20 +463,21 @@ def process_event(files: list, db_embeddings: dict) -> dict:
             "porcentaje_apoyo": round(support * 100, 1),
             "score_final": round(final_score, 4),
         }
-        print(
-            f"[VOTO] persona={person} hits={hits}/{n_valid} "
-            f"mejor={best_dist:.4f} promedio={avg_dist:.4f} "
-            f"apoyo={support*100:.1f}% score={final_score:.3f}"
-        )
+        if log_votes:
+            print(
+                f"[VOTO] persona={person} hits={hits}/{n_valid} "
+                f"mejor={best_dist:.4f} promedio={avg_dist:.4f} "
+                f"apoyo={support*100:.1f}% score={final_score:.3f}"
+            )
 
-    winner       = None
+    winner = None
     winner_score = None
     if results:
-        winner       = max(results, key=lambda p: results[p]["score_final"])
+        winner = max(results, key=lambda p: results[p]["score_final"])
         winner_score = results[winner]["score_final"]
 
     granted = False
-    reason  = ""
+    reason = ""
     if winner is None:
         reason = "sin_matches_validos"
     elif results[winner]["total_hits"] < MIN_HITS:
@@ -346,35 +488,76 @@ def process_event(files: list, db_embeddings: dict) -> dict:
         reason = f"score_bajo ({winner_score:.3f} < {MIN_SCORE})"
     else:
         granted = True
-        reason  = (
+        reason = (
             f"{results[winner]['total_hits']} frames apoyan a {winner}, "
             f"score={winner_score:.3f}, mejor_dist={results[winner]['mejor_distancia']}"
         )
 
     return {
-        "granted": granted, "reason": reason, "winner": winner,
-        "scores": results, "n_valid": n_valid, "frames": frame_results,
+        "granted": granted,
+        "reason": reason,
+        "winner": winner,
+        "scores": results,
+        "n_valid": n_valid,
+        "frames": frame_results,
     }
 
 
-# ───────────────────────── ESP32 ACTIONS ──────────────────────────
+def process_event(frames: list, db_embeddings: dict, early_grant: bool = False) -> dict:
+    frame_results = []
+    for i, frame in enumerate(frames, 1):
+        frame_results.append(process_single_frame(frame, i, db_embeddings))
+        if early_grant:
+            partial = evaluate_decision(frame_results, log_votes=False)
+            if partial["granted"]:
+                print(f"[RAPIDO] decision temprana con {len(frame_results)} frame(s)")
+                return evaluate_decision(frame_results, log_votes=True)
+    return evaluate_decision(frame_results, log_votes=True)
+
+
+def capture_and_process_event(db_embeddings: dict) -> dict:
+    if SAVE_DEBUG_FRAMES:
+        clear_temp_dir()
+
+    frame_results = []
+    for i in range(1, BURST_COUNT + 1):
+        try:
+            frame = capture_frame(i)
+        except Exception as e:
+            print(f"[CAPTURA ERROR] frame_{i}: {e}")
+            continue
+
+        frame_results.append(process_single_frame(frame, i, db_embeddings))
+
+        if EARLY_GRANT:
+            partial = evaluate_decision(frame_results, log_votes=False)
+            if partial["granted"]:
+                print(f"[RAPIDO] decision temprana en frame {i}/{BURST_COUNT}")
+                break
+
+    return evaluate_decision(frame_results, log_votes=True)
+
+
+# ------------------------- ESP32 ACTIONS -------------------------
 
 def open_relay():
-    r = requests.get(OPEN_URL, timeout=5)
+    r = http.get(OPEN_URL, timeout=COMMAND_TIMEOUT)
     print("[ESP32 OPEN]", r.text)
 
+
 def close_relay():
-    r = requests.get(CLOSE_URL, timeout=5)
+    r = http.get(CLOSE_URL, timeout=COMMAND_TIMEOUT)
     print("[ESP32 CLOSE]", r.text)
+
 
 def ack_verify():
     try:
-        requests.get(ACK_URL, timeout=5)
+        http.get(ACK_URL, timeout=COMMAND_TIMEOUT)
     except Exception as e:
         print("[ACK ERROR]", e)
 
 
-# ───────────────────────── MAIN LOOP ──────────────────────────
+# ------------------------- MAIN LOOP -------------------------
 
 def main():
     global last_request_id
@@ -383,27 +566,30 @@ def main():
     load_cache()
 
     print("=" * 55)
-    print(" Servidor DeepFace — Control de Acceso con ESP32-CAM")
+    print(" Servidor DeepFace - Control de Acceso con ESP32-CAM")
     print("=" * 55)
     print(f" ESP32 IP      : {ESP32_IP}")
     print(f" Base de datos : {DB_PATH.resolve()}")
     print(f" Modelo        : {MODEL_NAME} | Detector: {DETECTOR_BACKEND}")
-    print(f" Frames/evento : {BURST_COUNT} | Max dist: {MAX_DISTANCE}")
+    print(f" Captura       : {CAPTURE_SIZE} quality={CAPTURE_QUALITY} fast=1")
+    print(f" Frames max    : {BURST_COUNT} | Early grant: {EARLY_GRANT}")
+    print(f" Max dist      : {MAX_DISTANCE}")
     print("=" * 55)
 
     print("\n[INIT] Leyendo fotos de base_datos/ ...")
     db_embeddings = build_db_embeddings()
     if not db_embeddings:
-        print("[INIT] ADVERTENCIA: base_datos/ está vacía o sin imágenes válidas.")
-        print("[INIT] Asegúrate de tener carpetas como base_datos/Jhon/foto1.jpg")
+        print("[INIT] ADVERTENCIA: base_datos/ esta vacia o sin imagenes validas.")
+        print("[INIT] Asegurate de tener carpetas como base_datos/Jhon/foto1.jpg")
     else:
         total_embs = sum(len(v) for v in db_embeddings.values())
+        db_embeddings = build_db_index(db_embeddings)
         print(f"[INIT] Listo: {len(db_embeddings)} persona(s), {total_embs} foto(s) procesada(s)\n")
 
     while True:
         try:
-            status           = get_status()
-            request_id       = int(status.get("verificationRequestId", -1))
+            status = get_status()
+            request_id = int(status.get("verificationRequestId", -1))
             verify_requested = bool(status.get("verificationRequested", False))
 
             if verify_requested and request_id != last_request_id:
@@ -412,44 +598,41 @@ def main():
                 print(f"{'='*55}")
                 last_request_id = request_id
 
-                files = capture_burst()
-                print(f"[CAPTURAS] obtenidas={len(files)}")
+                result = capture_and_process_event(db_embeddings)
 
-                if not files:
+                if not result["frames"]:
                     print("[RESULTADO] Sin capturas. Cerrando relay.")
                     close_relay()
                     ack_verify()
-                    time.sleep(1)
+                    time.sleep(POLL_INTERVAL)
                     continue
 
-                result = process_event(files, db_embeddings)
-
                 summary = {
-                    "request_id"           : request_id,
-                    "total_frames"         : len(files),
-                    "total_frames_validos" : result["n_valid"],
-                    "persona_ganadora"     : result["winner"],
-                    "score_final"          : result["scores"].get(result["winner"] or "", {}).get("score_final"),
-                    "mejor_distancia"      : result["scores"].get(result["winner"] or "", {}).get("mejor_distancia"),
-                    "decision"             : "PERMITIDO" if result["granted"] else "DENEGADO",
-                    "motivo"               : result["reason"],
+                    "request_id": request_id,
+                    "total_frames": len(result["frames"]),
+                    "total_frames_validos": result["n_valid"],
+                    "persona_ganadora": result["winner"],
+                    "score_final": result["scores"].get(result["winner"] or "", {}).get("score_final"),
+                    "mejor_distancia": result["scores"].get(result["winner"] or "", {}).get("mejor_distancia"),
+                    "decision": "PERMITIDO" if result["granted"] else "DENEGADO",
+                    "motivo": result["reason"],
                 }
                 print("\n[RESULTADO]", json.dumps(summary, ensure_ascii=False, indent=2))
 
                 if result["granted"]:
-                    print(f"\n[ACCESO] PERMITIDO — {result['reason']}")
+                    print(f"\n[ACCESO] PERMITIDO - {result['reason']}")
                     open_relay()
                 else:
-                    print(f"\n[ACCESO] DENEGADO  — {result['reason']}")
+                    print(f"\n[ACCESO] DENEGADO  - {result['reason']}")
                     close_relay()
 
                 ack_verify()
 
-            time.sleep(0.7)
+            time.sleep(POLL_INTERVAL)
 
         except Exception as e:
             print(f"[ERROR GENERAL] {e}")
-            time.sleep(2)
+            time.sleep(ERROR_RETRY_DELAY)
 
 
 if __name__ == "__main__":

@@ -46,12 +46,17 @@ IPAddress secondaryDNS(1, 1, 1, 1);
 #define STREAM_PORT            81
 #define CONTROL_PORT           80
 #define ACTIVE_HOLD_MS      30000UL
-#define PIR_VERIFY_DELAY_MS  5000UL
+#define PIR_VERIFY_DELAY_MS  1000UL
 #define ACCESS_OPEN_MS       5000UL
 #define FRAME_INTERVAL_MS      120UL
 
 #define STREAM_QUALITY          10
-#define CAPTURE_QUALITY          6
+#define CAPTURE_QUALITY         10
+
+// Variables ajustables desde web sin recompilar
+uint32_t frameIntervalMs          = FRAME_INTERVAL_MS; // intervalo entre frames del stream (50–2000 ms)
+int      flashMode                = 1;   // 0=apagado, 1=automático por brillo, 2=siempre encendido
+int      flashBrightnessThreshold = 600; // aec_value > umbral → flash encendido (0–1200)
 
 // ================= PINES AI THINKER =================
 #define PWDN_GPIO_NUM     32
@@ -141,7 +146,11 @@ void applyOutputs() {
   if (!active) motionWindowActive = false;
 
   bool relayOn = relayManualOn || accessGranted;
-  bool flashOn = flashManualOn || active || pirDelayRunning;
+  // flashMode 2 = siempre encendido cuando hay actividad
+  // flashMode 0 o 1 = solo manual; el auto-flash se maneja en handleCapture()
+  bool flashOn = (flashMode == 2)
+    ? (flashManualOn || active || pirDelayRunning)
+    : flashManualOn;
 
   setRelay(relayOn);
   setFlash(flashOn);
@@ -341,6 +350,9 @@ void handleStatus() {
   json += "\"verificationRequestId\":" + String(verificationRequestId) + ",";
   json += "\"capturesServed\":" + String(captureCount) + ",";
   json += "\"framesStreamed\":" + String(frameCount) + ",";
+  json += "\"frameIntervalMs\":" + String(frameIntervalMs) + ",";
+  json += "\"flashMode\":" + String(flashMode) + ",";
+  json += "\"flashBrightnessThreshold\":" + String(flashBrightnessThreshold) + ",";
 
   if (s) {
     json += "\"framesize\":" + String(s->status.framesize) + ",";
@@ -441,6 +453,20 @@ void handleControl() {
     res = s->set_dcw(s, val);
   } else if (variable == "colorbar") {
     res = s->set_colorbar(s, val);
+
+  // ── Nuevas variables ajustables desde web ──────────────────
+  } else if (variable == "frame_interval") {
+    frameIntervalMs = constrain((uint32_t)val, 50, 2000);
+    res = 0;
+  } else if (variable == "flash_mode") {
+    flashMode = constrain(val, 0, 2);
+    applyOutputs();
+    res = 0;
+  } else if (variable == "flash_threshold") {
+    flashBrightnessThreshold = constrain(val, 0, 1200);
+    res = 0;
+  // ─────────────────────────────────────────────────────────────
+
   } else {
     controlServer.send(400, "text/plain", "variable no soportada");
     return;
@@ -519,35 +545,62 @@ void handleCapture() {
   if (controlServer.hasArg("size")) {
     fsize = parseFrameSize(controlServer.arg("size"));
   }
+  bool fastMode = controlServer.hasArg("fast") && controlServer.arg("fast") != "0";
 
   sensor_t* s = esp_camera_sensor_get();
   int oldQuality = STREAM_QUALITY;
   framesize_t oldFsize = FRAMESIZE_VGA;
+  bool configChanged = false;
 
   if (s) {
     oldQuality = s->status.quality;
     oldFsize   = (framesize_t)s->status.framesize;
-    s->set_quality(s, quality);
-    s->set_framesize(s, fsize);
-    delay(300);  // esperar que el AEC se estabilice con la nueva config
+    configChanged = (oldQuality != quality) || (oldFsize != fsize);
+    if (oldQuality != quality) s->set_quality(s, quality);
+    if (oldFsize != fsize) s->set_framesize(s, fsize);
+    if (configChanged) {
+      delay(fastMode ? 60 : 300);
+    }
   }
 
+  // ── Flash automático por brillo ──────────────────────────────
+  // flashMode 0 = nunca flash
+  // flashMode 1 = automático: enciende solo si aec_value > umbral (escena oscura)
+  // flashMode 2 = siempre encendido durante la captura
+  bool flashForCapture = false;
+  if (flashMode == 2) {
+    flashForCapture = true;
+  } else if (flashMode == 1 && s) {
+    // aec_value alto → sensor compensando poca luz → encender flash
+    flashForCapture = (s->status.aec_value > flashBrightnessThreshold);
+  }
+  if (flashForCapture) {
+    setFlash(true);
+    delay(fastMode ? 40 : 100);
+  }
+  // ─────────────────────────────────────────────────────────────
+
   if (xSemaphoreTake(camMutex, pdMS_TO_TICKS(2500)) != pdTRUE) {
+    if (flashForCapture && !flashManualOn) setFlash(false);
     controlServer.send(503, "text/plain", "Camara ocupada");
     return;
   }
 
-  // Descartar 1 frame para asegurar buffer limpio
-  camera_fb_t* discard = esp_camera_fb_get();
-  if (discard) esp_camera_fb_return(discard);
+  if (!fastMode || configChanged) {
+    camera_fb_t* discard = esp_camera_fb_get();
+    if (discard) esp_camera_fb_return(discard);
+  }
 
   camera_fb_t* fb = esp_camera_fb_get();
   xSemaphoreGive(camMutex);
 
-  if (s) {
+  if (s && configChanged) {
     s->set_quality(s, oldQuality);
     s->set_framesize(s, oldFsize);
   }
+
+  // Apagar flash tras captura (solo si lo encendimos nosotros)
+  if (flashForCapture && !flashManualOn) setFlash(false);
 
   if (!fb) {
     controlServer.send(503, "text/plain", "Error al capturar");
@@ -620,7 +673,7 @@ small{color:#94a3b8}
     <div class="card"><div class="label">IP</div><div class="value" id="ip">-</div></div>
     <div class="card"><div class="label">PIR</div><div class="value" id="pir">-</div></div>
     <div class="card"><div class="label">PIR ARMADO</div><div class="value" id="pirarmed">-</div></div>
-    <div class="card"><div class="label">DELAY 5s</div><div class="value" id="delayrun">-</div></div>
+    <div class="card"><div class="label">DELAY 1s</div><div class="value" id="delayrun">-</div></div>
     <div class="card"><div class="label">RELAY</div><div class="value" id="relay">-</div></div>
     <div class="card"><div class="label">FLASH</div><div class="value" id="flash">-</div></div>
     <div class="card"><div class="label">VERIFY</div><div class="value" id="verify">-</div></div>
@@ -770,6 +823,36 @@ small{color:#94a3b8}
       <div class="switch-row"><label>V-Flip</label><input id="vflip" type="checkbox" onchange="setCam('vflip', this.checked?1:0)"><span id="vflip_val">-</span></div>
       <div class="switch-row"><label>DCW</label><input id="dcw" type="checkbox" onchange="setCam('dcw', this.checked?1:0)"><span id="dcw_val">-</span></div>
       <div class="switch-row"><label>Color Bar</label><input id="colorbar" type="checkbox" onchange="setCam('colorbar', this.checked?1:0)"><span id="colorbar_val">-</span></div>
+
+      <div class="section-title">Control de captura</div>
+
+      <div class="ctrl-row">
+        <label>Intervalo stream</label>
+        <input id="frame_interval" type="range" min="50" max="1000" step="10"
+               oninput="showVal('frame_interval')" onchange="setCam('frame_interval',this.value)">
+        <span id="frame_interval_val">-</span>
+      </div>
+      <small style="padding:0 0 8px 2px;display:block;color:#94a3b8">ms entre frames del stream (50–1000)</small>
+
+      <div class="section-title">Flash automático</div>
+
+      <div class="ctrl-row">
+        <label>Modo flash</label>
+        <select id="flash_mode" onchange="setCam('flash_mode',this.value)">
+          <option value="0">Apagado</option>
+          <option value="1">Automático</option>
+          <option value="2">Siempre ON</option>
+        </select>
+        <span id="flash_mode_val">-</span>
+      </div>
+
+      <div class="ctrl-row">
+        <label>Umbral oscuridad</label>
+        <input id="flash_threshold" type="range" min="0" max="1200" step="50"
+               oninput="showVal('flash_threshold')" onchange="setCam('flash_threshold',this.value)">
+        <span id="flash_threshold_val">-</span>
+      </div>
+      <small style="padding:0 0 4px 2px;display:block;color:#94a3b8">aec_value &gt; umbral → flash ON al capturar (defecto: 600)</small>
     </div>
   </div>
 
@@ -792,7 +875,7 @@ async function sendCmd(url){
 }
 
 function openCapture(){
-  window.open("/capture?quality=6&size=vga", "_blank");
+  window.open("/capture?quality=10&size=vga&fast=1", "_blank");
 }
 
 function paintBool(id, value, trueText="SI", falseText="NO"){
@@ -843,6 +926,20 @@ function syncUI(s){
       if(out) out.textContent=s[k];
     }
   });
+
+  // Sync de nuevos controles (nombres JSON distintos a los IDs HTML)
+  if(s.frameIntervalMs !== undefined){
+    const el=document.getElementById("frame_interval");
+    if(el){ el.value=s.frameIntervalMs; const o=document.getElementById("frame_interval_val"); if(o) o.textContent=s.frameIntervalMs; }
+  }
+  if(s.flashMode !== undefined){
+    const el=document.getElementById("flash_mode");
+    if(el){ el.value=String(s.flashMode); const o=document.getElementById("flash_mode_val"); if(o) o.textContent=s.flashMode; }
+  }
+  if(s.flashBrightnessThreshold !== undefined){
+    const el=document.getElementById("flash_threshold");
+    if(el){ el.value=s.flashBrightnessThreshold; const o=document.getElementById("flash_threshold_val"); if(o) o.textContent=s.flashBrightnessThreshold; }
+  }
 }
 
 async function updateStatus(){
@@ -897,7 +994,7 @@ void handleStream() {
 
   while (client.connected()) {
     unsigned long now = millis();
-    if (now - lastFrame < FRAME_INTERVAL_MS) {
+    if (now - lastFrame < frameIntervalMs) {
       delay(2);
       continue;
     }
@@ -1010,7 +1107,7 @@ void loop() {
       motionWindowActive = true;
       pirDelayRunning = true;
       pirDelayStart = millis();
-      Serial.println("[PIR] Movimiento detectado, esperando 5s...");
+      Serial.println("[PIR] Movimiento detectado, esperando 1s...");
     } else {
       pirFallingCount++;
       Serial.println("[PIR] Fin de movimiento");
