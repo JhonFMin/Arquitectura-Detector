@@ -327,7 +327,7 @@ Luego selecciona la placa ESP32-CAM correcta, el puerto COM y pulsa **Subir**.
 La versión esperada de este firmware es:
 
 ```text
-faceguard-fastapi-sqlite-2026-06-17
+faceguard-live-view-fix-2026-06-18
 ```
 
 Después de subirlo, verifica en el navegador:

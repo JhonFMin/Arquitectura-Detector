@@ -786,7 +786,7 @@
               <span id="monitorStatusText" style="font-size:.76rem;color:#6e7681;">Conectando...</span>
             </div>
             <div class="monitor-stream">
-              <img id="monitorStream" src="/api/esp32/stream" alt="Stream ESP32-CAM" onerror="handleMonitorStreamError()">
+              <img id="monitorStream" src="/api/esp32/stream" alt="Stream ESP32-CAM" onload="handleMonitorFrameLoaded()" onerror="handleMonitorStreamError()">
               <div id="monitorOffline" class="monitor-stream-offline" style="display:none;">
                 <i class="bi bi-camera-video-off" style="font-size:2rem;display:block;margin-bottom:8px;"></i>
                 No se pudo cargar el stream. Revisa IP, firmware y credenciales.
@@ -2225,6 +2225,11 @@ function restartMonitorStream() {
   const img = document.getElementById('monitorStream');
   const offline = document.getElementById('monitorOffline');
   if (!img) return;
+  if (window.monitorCaptureFallbackTimer) {
+    clearInterval(window.monitorCaptureFallbackTimer);
+    window.monitorCaptureFallbackTimer = null;
+  }
+  window.monitorUsingCaptureFallback = false;
   if (offline) offline.style.display = 'none';
   img.style.display = 'block';
   img.src = `/api/esp32/stream?t=${Date.now()}`;
@@ -2232,11 +2237,46 @@ function restartMonitorStream() {
 }
 
 function handleMonitorStreamError() {
+  if (!window.monitorUsingCaptureFallback) {
+    startMonitorCaptureFallback();
+    return;
+  }
+
   const img = document.getElementById('monitorStream');
   const offline = document.getElementById('monitorOffline');
   if (img) img.style.display = 'none';
   if (offline) offline.style.display = 'block';
   setMonitorOnline(false, 'Stream no disponible');
+}
+
+function handleMonitorFrameLoaded() {
+  const img = document.getElementById('monitorStream');
+  const offline = document.getElementById('monitorOffline');
+  if (offline) offline.style.display = 'none';
+  if (img) img.style.display = 'block';
+  if (window.monitorUsingCaptureFallback) {
+    setMonitorOnline(true, 'Vista por capturas periodicas');
+  }
+}
+
+function startMonitorCaptureFallback() {
+  const img = document.getElementById('monitorStream');
+  const offline = document.getElementById('monitorOffline');
+  if (!img) return;
+
+  window.monitorUsingCaptureFallback = true;
+  if (offline) offline.style.display = 'none';
+  img.style.display = 'block';
+  setMonitorActionStatus('MJPEG no disponible; usando capturas periodicas.', 'warn');
+
+  const refreshFrame = () => {
+    img.src = `/api/esp32/capture?quality=10&size=vga&t=${Date.now()}`;
+  };
+
+  refreshFrame();
+  if (!window.monitorCaptureFallbackTimer) {
+    window.monitorCaptureFallbackTimer = setInterval(refreshFrame, 900);
+  }
 }
 
 async function refreshMonitorStatus() {
