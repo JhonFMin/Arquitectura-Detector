@@ -217,7 +217,7 @@ def esp32_stream_response():
     ip = get_config_value("esp32_ip", "192.168.0.50")
     url = f"http://{ip}:81/stream"
     try:
-        upstream = requests.get(url, auth=get_esp32_auth(), stream=True, timeout=(3, None))
+        upstream = requests.get(url, stream=True, timeout=(3, None))
         upstream.raise_for_status()
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"No se pudo abrir el stream del ESP32-CAM en {ip}: {exc}") from exc

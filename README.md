@@ -327,7 +327,7 @@ Luego selecciona la placa ESP32-CAM correcta, el puerto COM y pulsa **Subir**.
 La versión esperada de este firmware es:
 
 ```text
-faceguard-live-view-fix-2026-06-18
+faceguard-stream-preview-2026-06-18
 ```
 
 Después de subirlo, verifica en el navegador:

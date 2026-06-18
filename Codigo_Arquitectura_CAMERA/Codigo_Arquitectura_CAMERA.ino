@@ -63,7 +63,7 @@ const char* AUTH_NAMESPACE        = "auth";
 
 // Version que debe cargarse desde Arduino IDE al ESP32-CAM.
 // Permite confirmar desde /status o /version que la placa tiene este firmware.
-#define FIRMWARE_VERSION "faceguard-live-view-fix-2026-06-18"
+#define FIRMWARE_VERSION "faceguard-stream-preview-2026-06-18"
 #define FIRMWARE_API_VERSION "2"
 #define DASHBOARD_URL "http://127.0.0.1:5000/"
 
@@ -1131,7 +1131,7 @@ small{color:#94a3b8}
 
 <script>
 const host = location.hostname;
-const streamImg = document.getElementById("stream");
+document.getElementById("stream").src = "http://" + host + ":81/stream";
 
 function setMsg(text){ document.getElementById("msg").textContent = text; }
 
@@ -1150,11 +1150,6 @@ function formOptions(values){
     headers:{"Content-Type":"application/x-www-form-urlencoded"},
     body:new URLSearchParams(values)
   };
-}
-
-function refreshEmbeddedView(){
-  if(!streamImg) return;
-  streamImg.src = "/capture?quality=10&size=vga&fast=1&t=" + Date.now();
 }
 
 async function sendCmd(url){
@@ -1339,8 +1334,6 @@ async function updateStatus(){
 setInterval(updateStatus, 1500);
 updateStatus();
 loadAdmins();
-refreshEmbeddedView();
-setInterval(refreshEmbeddedView, 900);
 </script>
 </body>
 </html>
