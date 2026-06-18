@@ -420,6 +420,9 @@
   </button>
 
   <div class="nav-section">Sistema</div>
+  <button class="nav-link-custom" onclick="showPage('puertas')">
+    <span class="nav-icon"><i class="bi bi-door-closed-fill"></i></span> Múltiples Puertas
+  </button>
   <button class="nav-link-custom" onclick="showPage('configuracion')">
     <span class="nav-icon"><i class="bi bi-sliders"></i></span> Configuración ESP32
   </button>
@@ -618,30 +621,54 @@
 
       <!-- Live feed grid -->
       <div class="live-grid mb-4">
+        <!-- Frame persona conocida -->
         <div class="live-card">
           <div class="live-thumb" style="color:var(--accent);font-size:2.5rem;">
             <i class="bi bi-person-bounding-box"></i>
             <div class="live-stamp">14:32:07</div>
             <div style="position:absolute;bottom:8px;left:8px;"><span class="badge-permit">PERMITIDO</span></div>
           </div>
-          <div class="live-info"><div class="name">Juan García</div><div class="time">Score: 0.84 · 4/5 frames · dist: 0.41</div></div>
+          <div class="live-info">
+            <div class="name">Juan García</div>
+            <div class="time">Score: 0.84 · 4/5 frames · dist: 0.41</div>
+            <button class="btn btn-sm mt-2 w-100" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.72rem;" onclick="showPage('historial')"><i class="bi bi-journal-text me-1"></i>Ver historial</button>
+          </div>
         </div>
-        <div class="live-card">
+        <!-- Frame persona DESCONOCIDA — con botón registrar desde frame -->
+        <div class="live-card" style="border-color:rgba(255,76,106,.35);">
           <div class="live-thumb" style="color:var(--accent-red);">
             <i class="bi bi-person-fill-slash"></i>
             <div class="live-stamp">14:28:51</div>
             <div style="position:absolute;bottom:8px;left:8px;"><span class="badge-deny">DENEGADO</span></div>
+            <div style="position:absolute;top:8px;left:8px;background:rgba(255,76,106,.2);color:var(--accent-red);font-size:.65rem;padding:2px 7px;border-radius:4px;font-weight:700;">DESCONOCIDO</div>
           </div>
-          <div class="live-info"><div class="name" style="color:#8b949e;">Desconocido</div><div class="time">Score: 0.21 · 2/5 frames · sin match</div></div>
+          <div class="live-info">
+            <div class="name" style="color:#8b949e;">Desconocido</div>
+            <div class="time">Score: 0.21 · 2/5 frames · sin match</div>
+            <div class="d-flex gap-1 mt-2">
+              <button class="btn btn-sm flex-fill btn-accent" style="font-size:.72rem;" data-bs-toggle="modal" data-bs-target="#modalRegistrarFrame" onclick="setFrameData('14:28:51','2/5')">
+                <i class="bi bi-person-plus me-1"></i>Registrar
+              </button>
+              <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.12);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;font-size:.72rem;">
+                Descartar
+              </button>
+            </div>
+          </div>
         </div>
+        <!-- Frame persona conocida -->
         <div class="live-card">
           <div class="live-thumb" style="color:#6f42c1;">
             <i class="bi bi-person-bounding-box"></i>
             <div class="live-stamp">14:15:33</div>
             <div style="position:absolute;bottom:8px;left:8px;"><span class="badge-permit">PERMITIDO</span></div>
           </div>
-          <div class="live-info"><div class="name">María López</div><div class="time">Score: 0.91 · 5/5 frames · dist: 0.32</div></div>
+          <div class="live-info">
+            <div class="name">María López</div>
+            <div class="time">Score: 0.91 · 5/5 frames · dist: 0.32</div>
+            <button class="btn btn-sm mt-2 w-100" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.72rem;" onclick="showPage('historial')"><i class="bi bi-journal-text me-1"></i>Ver historial</button>
+          </div>
         </div>
+        <!-- Esperando -->
         <div class="live-card">
           <div class="live-thumb">
             <i class="bi bi-camera-video-off"></i>
@@ -890,6 +917,32 @@
 
             <button class="btn btn-accent w-100">Guardar Horario</button>
           </div>
+
+          <!-- Mini calendario de horas -->
+          <div class="card-custom mt-3">
+            <h6 class="fw-semibold text-white mb-1">Vista semanal del horario</h6>
+            <div style="font-size:.72rem;color:#6e7681;margin-bottom:12px;">Verde = horario permitido · Gris = bloqueado</div>
+            <div style="overflow-x:auto;">
+              <table style="width:100%;border-collapse:collapse;font-size:.65rem;">
+                <thead>
+                  <tr>
+                    <th style="color:#6e7681;padding:4px 6px;text-align:left;width:36px;"></th>
+                    <script>
+                      const dias=['Lu','Ma','Mi','Ju','Vi','Sa','Do'];
+                      const activos=[true,true,true,true,true,false,false];
+                      dias.forEach((d,i)=>document.write(`<th style="text-align:center;padding:4px 3px;color:${activos[i]?'#fff':'#3d444d'};font-weight:${activos[i]?700:400};">${d}</th>`));
+                    </script>
+                  </tr>
+                </thead>
+                <tbody id="horaCalBody"></tbody>
+              </table>
+            </div>
+            <div class="d-flex gap-3 mt-2" style="font-size:.7rem;color:#6e7681;">
+              <span><span style="display:inline-block;width:10px;height:10px;background:rgba(0,229,160,.6);border-radius:2px;margin-right:4px;"></span>Permitido</span>
+              <span><span style="display:inline-block;width:10px;height:10px;background:#21262d;border-radius:2px;margin-right:4px;"></span>Bloqueado</span>
+              <span><span style="display:inline-block;width:10px;height:10px;background:rgba(0,180,255,.5);border-radius:2px;margin-right:4px;"></span>Ahora</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -948,44 +1001,68 @@
       </div>
       <div class="alert" style="background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.3);color:var(--accent-yellow);border-radius:10px;font-size:.83rem;">
         <i class="bi bi-exclamation-triangle me-2"></i>
-        Estos rostros no fueron reconocidos. Puedes registrarlos como persona nueva o descartar el evento.
+        Estos rostros no fueron reconocidos. Puedes darles <strong>acceso temporal</strong> y solicitar que se registren, o descartar el evento.
       </div>
       <div class="row g-3">
         <div class="col-md-4">
           <div class="unknown-card">
-            <div class="unknown-thumb"><i class="bi bi-person-fill-exclamation"></i></div>
+            <div class="unknown-thumb" style="position:relative;">
+              <i class="bi bi-person-fill-exclamation"></i>
+              <div style="position:absolute;top:8px;right:8px;background:rgba(255,193,7,.2);color:var(--accent-yellow);font-size:.65rem;padding:2px 8px;border-radius:4px;font-weight:700;">PENDIENTE</div>
+            </div>
             <div class="p-3">
               <div style="font-size:.72rem;color:#6e7681;">2025-06-18 14:28:51 · Score: 0.21</div>
               <div style="font-size:.78rem;color:#c9d1d9;margin-top:4px;">Sin match · 2/5 frames válidos</div>
-              <div class="unknown-actions px-0">
-                <button class="btn btn-sm btn-accent flex-fill" data-bs-toggle="modal" data-bs-target="#modalPersona">Registrar</button>
-                <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.15);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;">Descartar</button>
+              <div class="unknown-actions px-0 flex-column gap-2">
+                <button class="btn btn-sm btn-accent w-100" data-bs-toggle="modal" data-bs-target="#modalAccesoTemporal" onclick="setUnknownData('14:28:51')">
+                  <i class="bi bi-door-open me-1"></i>Acceso temporal + Registrar
+                </button>
+                <div class="d-flex gap-1 w-100">
+                  <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.72rem;" data-bs-toggle="modal" data-bs-target="#modalPersona">Solo registrar</button>
+                  <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.12);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;font-size:.72rem;">Descartar</button>
+                </div>
               </div>
             </div>
           </div>
         </div>
         <div class="col-md-4">
           <div class="unknown-card">
-            <div class="unknown-thumb"><i class="bi bi-person-fill-exclamation"></i></div>
+            <div class="unknown-thumb" style="position:relative;">
+              <i class="bi bi-person-fill-exclamation"></i>
+              <div style="position:absolute;top:8px;right:8px;background:rgba(255,193,7,.2);color:var(--accent-yellow);font-size:.65rem;padding:2px 8px;border-radius:4px;font-weight:700;">PENDIENTE</div>
+            </div>
             <div class="p-3">
               <div style="font-size:.72rem;color:#6e7681;">2025-06-18 13:44:09 · Score: 0.18</div>
               <div style="font-size:.78rem;color:#c9d1d9;margin-top:4px;">Sin match · 1/5 frames válidos</div>
-              <div class="unknown-actions px-0">
-                <button class="btn btn-sm btn-accent flex-fill" data-bs-toggle="modal" data-bs-target="#modalPersona">Registrar</button>
-                <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.15);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;">Descartar</button>
+              <div class="unknown-actions px-0 flex-column gap-2">
+                <button class="btn btn-sm btn-accent w-100" data-bs-toggle="modal" data-bs-target="#modalAccesoTemporal" onclick="setUnknownData('13:44:09')">
+                  <i class="bi bi-door-open me-1"></i>Acceso temporal + Registrar
+                </button>
+                <div class="d-flex gap-1 w-100">
+                  <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.72rem;" data-bs-toggle="modal" data-bs-target="#modalPersona">Solo registrar</button>
+                  <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.12);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;font-size:.72rem;">Descartar</button>
+                </div>
               </div>
             </div>
           </div>
         </div>
         <div class="col-md-4">
           <div class="unknown-card">
-            <div class="unknown-thumb"><i class="bi bi-person-fill-exclamation"></i></div>
+            <div class="unknown-thumb" style="position:relative;">
+              <i class="bi bi-person-fill-exclamation"></i>
+              <div style="position:absolute;top:8px;right:8px;background:rgba(255,193,7,.2);color:var(--accent-yellow);font-size:.65rem;padding:2px 8px;border-radius:4px;font-weight:700;">PENDIENTE</div>
+            </div>
             <div class="p-3">
               <div style="font-size:.72rem;color:#6e7681;">2025-06-17 09:12:35 · Score: 0.30</div>
               <div style="font-size:.78rem;color:#c9d1d9;margin-top:4px;">Sin match · 3/5 frames válidos</div>
-              <div class="unknown-actions px-0">
-                <button class="btn btn-sm btn-accent flex-fill" data-bs-toggle="modal" data-bs-target="#modalPersona">Registrar</button>
-                <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.15);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;">Descartar</button>
+              <div class="unknown-actions px-0 flex-column gap-2">
+                <button class="btn btn-sm btn-accent w-100" data-bs-toggle="modal" data-bs-target="#modalAccesoTemporal" onclick="setUnknownData('09:12:35')">
+                  <i class="bi bi-door-open me-1"></i>Acceso temporal + Registrar
+                </button>
+                <div class="d-flex gap-1 w-100">
+                  <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.72rem;" data-bs-toggle="modal" data-bs-target="#modalPersona">Solo registrar</button>
+                  <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.12);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;font-size:.72rem;">Descartar</button>
+                </div>
               </div>
             </div>
           </div>
@@ -1245,8 +1322,301 @@
       </div>
     </div>
 
+    <!-- ══════ PAGE: MÚLTIPLES PUERTAS ══════ -->
+    <div class="page" id="page-puertas">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h6 class="fw-semibold text-white mb-1">Múltiples Puertas</h6>
+          <div style="font-size:.75rem;color:#6e7681;">Gestiona y monitorea cada punto de acceso independientemente</div>
+        </div>
+        <button class="btn btn-accent px-3" data-bs-toggle="modal" data-bs-target="#modalNuevaPuerta">
+          <i class="bi bi-plus-lg me-2"></i>Agregar Puerta
+        </button>
+      </div>
+
+      <!-- Mapa de puertas -->
+      <div class="row g-3 mb-4">
+        <!-- Puerta 1 -->
+        <div class="col-md-6 col-xl-4">
+          <div class="card-custom" style="border-color:rgba(0,229,160,.3);">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:48px;height:48px;background:rgba(0,229,160,.12);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🚪</div>
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:.95rem;">Puerta Principal</div>
+                  <div style="font-size:.7rem;color:#6e7681;">192.168.0.50 · Entrada principal</div>
+                </div>
+              </div>
+              <span style="font-size:.65rem;background:rgba(0,229,160,.15);color:var(--accent);padding:3px 9px;border-radius:10px;font-weight:700;">● CONECTADA</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+              <div style="background:#0d1117;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:700;color:var(--accent);">47</div>
+                <div style="font-size:.65rem;color:#6e7681;">Accesos hoy</div>
+              </div>
+              <div style="background:#0d1117;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:700;color:var(--accent-red);">5</div>
+                <div style="font-size:.65rem;color:#6e7681;">Denegados hoy</div>
+              </div>
+            </div>
+            <div style="font-size:.72rem;color:#6e7681;margin-bottom:10px;">Último acceso: <span style="color:#c9d1d9;">Juan García · hace 4 min</span></div>
+            <div style="font-size:.72rem;color:#6e7681;margin-bottom:12px;">Ping: <span style="color:var(--accent);">12ms</span> · Relay: <span style="color:var(--accent);">Cerrado</span></div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm flex-fill btn-accent" style="font-size:.75rem;"><i class="bi bi-unlock me-1"></i>Abrir ahora</button>
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;"><i class="bi bi-gear me-1"></i>Config</button>
+            </div>
+          </div>
+        </div>
+        <!-- Puerta 2 -->
+        <div class="col-md-6 col-xl-4">
+          <div class="card-custom" style="border-color:rgba(0,180,255,.3);">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:48px;height:48px;background:rgba(0,180,255,.12);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🚪</div>
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:.95rem;">Puerta Trasera</div>
+                  <div style="font-size:.7rem;color:#6e7681;">192.168.0.51 · Salida bodega</div>
+                </div>
+              </div>
+              <span style="font-size:.65rem;background:rgba(0,180,255,.15);color:#00b4ff;padding:3px 9px;border-radius:10px;font-weight:700;">● CONECTADA</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+              <div style="background:#0d1117;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:700;color:#00b4ff;">18</div>
+                <div style="font-size:.65rem;color:#6e7681;">Accesos hoy</div>
+              </div>
+              <div style="background:#0d1117;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:700;color:var(--accent-red);">2</div>
+                <div style="font-size:.65rem;color:#6e7681;">Denegados hoy</div>
+              </div>
+            </div>
+            <div style="font-size:.72rem;color:#6e7681;margin-bottom:10px;">Último acceso: <span style="color:#c9d1d9;">Carlos Ruiz · hace 22 min</span></div>
+            <div style="font-size:.72rem;color:#6e7681;margin-bottom:12px;">Ping: <span style="color:var(--accent);">18ms</span> · Relay: <span style="color:var(--accent);">Cerrado</span></div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm flex-fill" style="background:rgba(0,180,255,.12);color:#00b4ff;border:1px solid rgba(0,180,255,.3);border-radius:7px;font-size:.75rem;"><i class="bi bi-unlock me-1"></i>Abrir ahora</button>
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;"><i class="bi bi-gear me-1"></i>Config</button>
+            </div>
+          </div>
+        </div>
+        <!-- Puerta 3 — OFFLINE -->
+        <div class="col-md-6 col-xl-4">
+          <div class="card-custom" style="opacity:.7;border-color:rgba(255,76,106,.3);">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:48px;height:48px;background:rgba(255,76,106,.08);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🚪</div>
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:.95rem;">Oficinas 2° piso</div>
+                  <div style="font-size:.7rem;color:#6e7681;">192.168.0.52 · Acceso restringido</div>
+                </div>
+              </div>
+              <span style="font-size:.65rem;background:rgba(255,76,106,.15);color:var(--accent-red);padding:3px 9px;border-radius:10px;font-weight:700;">● OFFLINE</span>
+            </div>
+            <div class="p-3 rounded mb-3" style="background:rgba(255,76,106,.06);border:1px solid rgba(255,76,106,.2);text-align:center;">
+              <i class="bi bi-wifi-off" style="font-size:1.5rem;color:var(--accent-red);"></i>
+              <div style="font-size:.78rem;color:var(--accent-red);margin-top:6px;font-weight:600;">Sin respuesta desde hace 14 min</div>
+              <div style="font-size:.7rem;color:#6e7681;">Último ping fallido: 14:15:08</div>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;"><i class="bi bi-arrow-clockwise me-1"></i>Reconectar</button>
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;"><i class="bi bi-gear me-1"></i>Config</button>
+            </div>
+          </div>
+        </div>
+        <!-- Agregar nueva -->
+        <div class="col-md-6 col-xl-4">
+          <div class="card-custom d-flex flex-column align-items-center justify-content-center text-center" style="border-style:dashed;min-height:200px;cursor:pointer;color:#6e7681;" data-bs-toggle="modal" data-bs-target="#modalNuevaPuerta">
+            <i class="bi bi-plus-circle" style="font-size:2.2rem;margin-bottom:10px;"></i>
+            <div style="font-weight:600;font-size:.9rem;">Agregar nueva puerta</div>
+            <div style="font-size:.75rem;margin-top:4px;">Conecta otro ESP32-CAM</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla resumen -->
+      <div class="card-custom">
+        <h6 class="fw-semibold text-white mb-3">Resumen de actividad — Todas las puertas</h6>
+        <table class="table table-custom mb-0">
+          <thead><tr><th>Puerta</th><th>IP</th><th>Estado</th><th>Accesos hoy</th><th>Denegados</th><th>Último acceso</th><th>Ping</th><th>Acción</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span style="font-weight:600;color:#fff;">Puerta Principal</span></td>
+              <td style="color:#6e7681;font-family:monospace;">192.168.0.50</td>
+              <td><span class="badge-permit">ONLINE</span></td>
+              <td style="color:var(--accent);">47</td><td style="color:var(--accent-red);">5</td>
+              <td style="color:#8b949e;">hace 4 min</td>
+              <td style="color:var(--accent);">12ms</td>
+              <td><button class="btn btn-sm btn-accent" style="font-size:.7rem;padding:2px 10px;">Abrir</button></td>
+            </tr>
+            <tr>
+              <td><span style="font-weight:600;color:#fff;">Puerta Trasera</span></td>
+              <td style="color:#6e7681;font-family:monospace;">192.168.0.51</td>
+              <td><span class="badge-permit">ONLINE</span></td>
+              <td style="color:#00b4ff;">18</td><td style="color:var(--accent-red);">2</td>
+              <td style="color:#8b949e;">hace 22 min</td>
+              <td style="color:var(--accent);">18ms</td>
+              <td><button class="btn btn-sm" style="background:rgba(0,180,255,.12);color:#00b4ff;border:1px solid rgba(0,180,255,.3);border-radius:7px;font-size:.7rem;padding:2px 10px;">Abrir</button></td>
+            </tr>
+            <tr>
+              <td><span style="font-weight:600;color:#fff;">Oficinas 2° piso</span></td>
+              <td style="color:#6e7681;font-family:monospace;">192.168.0.52</td>
+              <td><span class="badge-deny">OFFLINE</span></td>
+              <td style="color:#6e7681;">—</td><td style="color:#6e7681;">—</td>
+              <td style="color:var(--accent-red);">hace 14 min</td>
+              <td style="color:var(--accent-red);">timeout</td>
+              <td><button class="btn btn-sm" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.7rem;padding:2px 10px;">Reconectar</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
+
+<!-- ══════════════ MODAL: ACCESO TEMPORAL + REGISTRO ══════════════ -->
+<div class="modal fade" id="modalAccesoTemporal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;">
+      <div class="modal-header" style="border-color:var(--border-color);">
+        <div>
+          <h6 class="modal-title text-white fw-semibold mb-0">Acceso Temporal + Registro</h6>
+          <div style="font-size:.72rem;color:#6e7681;">Evento: <span id="unknownEventTime">—</span></div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Paso 1: Conceder acceso temporal -->
+        <div class="p-3 rounded mb-4" style="background:rgba(0,229,160,.07);border:1px solid rgba(0,229,160,.25);">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div style="width:38px;height:38px;background:rgba(0,229,160,.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🚪</div>
+            <div>
+              <div style="font-size:.85rem;font-weight:600;color:#fff;">Paso 1 — Abrir puerta ahora</div>
+              <div style="font-size:.72rem;color:#6e7681;">El relay se abrirá por el tiempo seleccionado</div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2 mt-2">
+            <label style="font-size:.78rem;color:#6e7681;white-space:nowrap;">Tiempo de acceso:</label>
+            <select class="form-select form-select-sm" style="max-width:140px;">
+              <option>5 segundos</option>
+              <option selected>10 segundos</option>
+              <option>30 segundos</option>
+              <option>1 minuto</option>
+            </select>
+            <button class="btn btn-sm btn-accent px-3"><i class="bi bi-unlock me-1"></i>Abrir</button>
+          </div>
+        </div>
+
+        <!-- Paso 2: Registro básico -->
+        <div style="font-size:.8rem;font-weight:600;color:#fff;margin-bottom:12px;">Paso 2 — Datos básicos de registro</div>
+        <div class="row g-3">
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOMBRE *</label><input type="text" class="form-control" placeholder="Juan"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">APELLIDO *</label><input type="text" class="form-control" placeholder="García"/></div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">ROL</label>
+            <select class="form-select"><option>Visitante temporal</option><option>Empleado</option><option>Proveedor</option><option>Administrador</option></select>
+          </div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">TELÉFONO</label><input type="tel" class="form-control" placeholder="+57 300 000 0000"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">ACCESO VÁLIDO HASTA</label><input type="date" class="form-control"/></div>
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" checked>
+              <label class="form-check-label" style="font-size:.83rem;">Usar el frame capturado como foto de registro</label>
+            </div>
+            <div class="mt-2 p-2 rounded d-flex align-items-center gap-3" style="background:#0d1117;border:1px solid var(--border-color);">
+              <div style="width:48px;height:48px;background:#161b22;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6e7681;font-size:1.4rem;"><i class="bi bi-person-bounding-box"></i></div>
+              <div>
+                <div style="font-size:.78rem;color:#c9d1d9;font-weight:600;">Frame capturado</div>
+                <div style="font-size:.68rem;color:#6e7681;">Se usará como imagen de entrenamiento inicial</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOTAS</label><textarea class="form-control" rows="2" placeholder="Motivo de la visita, autorizado por..."></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-color:var(--border-color);">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-accent px-4" data-bs-dismiss="modal"><i class="bi bi-person-check me-1"></i>Registrar como visitante temporal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: REGISTRAR DESDE FRAME (Monitor en Vivo) ══════════════ -->
+<div class="modal fade" id="modalRegistrarFrame" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;">
+      <div class="modal-header" style="border-color:var(--border-color);">
+        <div>
+          <h6 class="modal-title text-white fw-semibold mb-0">Registrar desde Monitor en Vivo</h6>
+          <div style="font-size:.72rem;color:#6e7681;">Frame: <span id="frameTimestamp">—</span> · Calidad: <span id="frameQuality">—</span></div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex gap-3 mb-4">
+          <!-- Frame preview -->
+          <div style="width:110px;height:110px;background:#0d1117;border-radius:10px;border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#6e7681;font-size:2.5rem;">
+            <i class="bi bi-person-bounding-box"></i>
+          </div>
+          <div>
+            <div style="font-size:.85rem;font-weight:600;color:#fff;margin-bottom:6px;">Frame capturado</div>
+            <div style="font-size:.75rem;color:#6e7681;line-height:1.6;">
+              Este frame se usará como la primera foto de entrenamiento de la persona.<br>
+              <span style="color:var(--accent-yellow);">⚠ Recomendado:</span> agrega más fotos después desde "Base de Imágenes" para mejor reconocimiento.
+            </div>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOMBRE *</label><input type="text" class="form-control" placeholder="Juan"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">APELLIDO *</label><input type="text" class="form-control" placeholder="García"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">ROL</label><select class="form-select"><option>Empleado</option><option>Administrador</option><option>Visitante</option></select></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">EMAIL</label><input type="email" class="form-control" placeholder="correo@empresa.com"/></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-color:var(--border-color);">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-accent px-4" data-bs-dismiss="modal"><i class="bi bi-person-plus me-1"></i>Registrar persona</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: NUEVA PUERTA ══════════════ -->
+<div class="modal fade" id="modalNuevaPuerta" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;">
+      <div class="modal-header" style="border-color:var(--border-color);">
+        <h6 class="modal-title text-white fw-semibold">Agregar Nueva Puerta</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOMBRE DE LA PUERTA *</label><input type="text" class="form-control" placeholder="Ej: Puerta Bodega, Entrada Lateral"/></div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">DESCRIPCIÓN</label><input type="text" class="form-control" placeholder="Ej: Acceso zona de carga"/></div>
+          <div class="col-8"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">IP DEL ESP32-CAM *</label><input type="text" class="form-control" placeholder="192.168.0.53"/></div>
+          <div class="col-4"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">PUERTO</label><input type="number" class="form-control" value="80"/></div>
+          <div class="col-12">
+            <label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">PERSONAS CON ACCESO</label>
+            <div class="d-flex flex-column gap-1">
+              <label style="font-size:.82rem;display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" checked> Juan García (Administrador)</label>
+              <label style="font-size:.82rem;display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" checked> María López (Empleado)</label>
+              <label style="font-size:.82rem;display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox"> Carlos Ruiz (Empleado)</label>
+              <label style="font-size:.82rem;display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox"> Ana Pérez (Empleado)</label>
+            </div>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-sm w-100" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:8px;">
+              <i class="bi bi-wifi me-2"></i>Probar conexión con ESP32
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-color:var(--border-color);">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-accent px-4" data-bs-dismiss="modal">Agregar Puerta</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════ MODAL: AGREGAR PERSONA ══════════════ -->
 <div class="modal fade" id="modalPersona" tabindex="-1">
@@ -1298,6 +1668,7 @@ const pages = {
   'alertas':       { title: 'Alertas del Sistema',      subtitle: '5 alertas · 3 no leídas' },
   'estadisticas':  { title: 'Estadísticas',             subtitle: 'Análisis de accesos y tendencias' },
   'reportes':      { title: 'Reportes',                 subtitle: 'Exporta datos del sistema' },
+  'puertas':       { title: 'Múltiples Puertas',        subtitle: 'Monitorea y gestiona cada punto de acceso' },
   'configuracion': { title: 'Configuración ESP32',      subtitle: 'Parámetros del hardware y reconocimiento' },
   'sistema':       { title: 'Estado del Sistema',       subtitle: 'Monitor de recursos y conectividad' },
 };
@@ -1318,6 +1689,7 @@ function showPage(id) {
   document.getElementById('page-subtitle').textContent = info.subtitle || '';
 
   if (id === 'estadisticas') setTimeout(initCharts, 50);
+  if (id === 'horarios')    setTimeout(buildHourCalendar, 60);
 }
 
 // ── CLOCK ──
@@ -1413,7 +1785,62 @@ window.addEventListener('load', () => {
 
 // ── Day pills toggle ──
 document.querySelectorAll('.day-pill').forEach(pill => {
-  pill.addEventListener('click', () => pill.classList.toggle('active'));
+  pill.addEventListener('click', () => {
+    pill.classList.toggle('active');
+    buildHourCalendar();
+  });
+});
+
+// ── Modal helpers ──
+function setFrameData(timestamp, quality) {
+  const el1 = document.getElementById('frameTimestamp');
+  const el2 = document.getElementById('frameQuality');
+  if (el1) el1.textContent = timestamp;
+  if (el2) el2.textContent = quality;
+}
+
+function setUnknownData(timestamp) {
+  const el = document.getElementById('unknownEventTime');
+  if (el) el.textContent = timestamp;
+}
+
+// ── Hour Calendar (horarios page) ──
+function buildHourCalendar() {
+  const body = document.getElementById('horaCalBody');
+  if (!body) return;
+
+  const pills = document.querySelectorAll('#page-horarios .day-pill');
+  const activeDays = Array.from(pills).map(p => p.classList.contains('active'));
+
+  const startEl = document.querySelector('#page-horarios input[type="time"]:first-of-type');
+  const endEl   = document.querySelector('#page-horarios input[type="time"]:last-of-type');
+  const startH  = startEl ? parseInt(startEl.value.split(':')[0]) : 8;
+  const endH    = endEl   ? parseInt(endEl.value.split(':')[0])   : 18;
+
+  const now = new Date();
+  const curH = now.getHours();
+  const curDay = now.getDay() === 0 ? 6 : now.getDay() - 1; // Mon=0
+
+  const hours = [];
+  for (let h = 6; h <= 22; h++) hours.push(h);
+
+  body.innerHTML = hours.map(h => {
+    const timeLabel = `${String(h).padStart(2,'0')}:00`;
+    const cells = activeDays.map((dayActive, di) => {
+      const inRange = dayActive && h >= startH && h < endH;
+      const isNow   = inRange && di === curDay && h === curH;
+      let bg = '#21262d';
+      if (isNow)   bg = 'rgba(0,180,255,.55)';
+      else if (inRange) bg = 'rgba(0,229,160,.55)';
+      return `<td style="padding:2px 3px;text-align:center;"><div style="width:100%;height:14px;background:${bg};border-radius:2px;"></div></td>`;
+    }).join('');
+    return `<tr><td style="color:#6e7681;padding:3px 6px;font-size:.62rem;white-space:nowrap;">${timeLabel}</td>${cells}</tr>`;
+  }).join('');
+}
+
+// Update calendar when time inputs change
+document.addEventListener('change', e => {
+  if (e.target.type === 'time') buildHourCalendar();
 });
 </script>
 </body>
