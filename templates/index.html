@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FaceGuard — Control de Acceso</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --sidebar-w: 240px;
+      --accent: #00e5a0;
+      --accent-red: #ff4c6a;
+      --accent-yellow: #ffc107;
+      --bg-dark: #0d1117;
+      --bg-card: #161b22;
+      --bg-sidebar: #0d1117;
+      --border-color: #21262d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: var(--bg-dark);
+      color: #c9d1d9;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      width: var(--sidebar-w);
+      height: 100vh;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .sidebar-brand {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .sidebar-brand .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), #00b4ff);
+      border-radius: 10px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 18px; margin-right: 10px;
+    }
+    .sidebar-brand span { font-weight: 700; font-size: 1.05rem; color: #fff; }
+    .sidebar-brand small { display: block; font-size: 0.7rem; color: #6e7681; margin-top: 1px; }
+
+    .nav-section {
+      padding: 12px 12px 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #6e7681;
+    }
+
+    .nav-link-custom {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      margin: 1px 8px;
+      border-radius: 8px;
+      color: #8b949e;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all .15s;
+      text-decoration: none;
+      border: none;
+      background: none;
+      width: calc(100% - 16px);
+      text-align: left;
+    }
+    .nav-link-custom:hover { background: #21262d; color: #c9d1d9; }
+    .nav-link-custom.active { background: rgba(0,229,160,.12); color: var(--accent); font-weight: 600; }
+    .nav-link-custom .nav-icon { width: 18px; text-align: center; font-size: 1rem; }
+    .nav-link-custom .badge-count {
+      margin-left: auto;
+      background: var(--accent-red);
+      color: #fff;
+      border-radius: 10px;
+      font-size: 0.68rem;
+      padding: 1px 7px;
+      font-weight: 700;
+    }
+
+    .esp32-status {
+      margin: auto 12px 14px;
+      padding: 10px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      font-size: 0.8rem;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .dot-green { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse 2s infinite; }
+    .dot-red   { background: var(--accent-red); }
+    .dot-yellow{ background: var(--accent-yellow); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+    /* ── MAIN ── */
+    #main {
+      margin-left: var(--sidebar-w);
+      min-height: 100vh;
+    }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 90;
+      background: rgba(13,17,23,.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .topbar h5 { margin: 0; font-weight: 600; color: #fff; font-size: 1rem; }
+    .topbar .topbar-right { display: flex; gap: 10px; align-items: center; }
+    .topbar .notif-btn {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: #8b949e;
+      border-radius: 8px;
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .topbar .notif-btn:hover { color: #fff; border-color: #444; }
+    .notif-dot {
+      position: absolute; top: 6px; right: 6px;
+      width: 7px; height: 7px;
+      background: var(--accent-red);
+      border-radius: 50%;
+    }
+
+    .content { padding: 24px 28px; }
+
+    /* ── CARDS ── */
+    .card-custom {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 18px 20px;
+      transition: transform .15s, border-color .15s;
+    }
+    .stat-card:hover { transform: translateY(-2px); border-color: #444; }
+    .stat-icon {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+    }
+    .stat-icon.green  { background: rgba(0,229,160,.12); color: var(--accent); }
+    .stat-icon.red    { background: rgba(255,76,106,.12); color: var(--accent-red); }
+    .stat-icon.blue   { background: rgba(0,180,255,.12);  color: #00b4ff; }
+    .stat-icon.yellow { background: rgba(255,193,7,.12);  color: var(--accent-yellow); }
+
+    .stat-value { font-size: 1.9rem; font-weight: 700; color: #fff; line-height: 1.1; }
+    .stat-label { font-size: 0.78rem; color: #6e7681; margin-top: 2px; }
+    .stat-delta { font-size: 0.75rem; margin-top: 8px; }
+    .delta-up   { color: var(--accent); }
+    .delta-down { color: var(--accent-red); }
+
+    /* ── TABLE ── */
+    .table-custom { font-size: 0.85rem; }
+    .table-custom thead th {
+      background: transparent;
+      border-bottom: 1px solid var(--border-color);
+      color: #6e7681;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      padding: 10px 14px;
+    }
+    .table-custom tbody td {
+      border-color: var(--border-color);
+      padding: 11px 14px;
+      vertical-align: middle;
+    }
+    .table-custom tbody tr:hover { background: rgba(255,255,255,.03); }
+
+    .badge-permit  { background: rgba(0,229,160,.15);  color: var(--accent);        border-radius: 6px; padding: 3px 10px; font-size:.75rem; font-weight:600; }
+    .badge-deny    { background: rgba(255,76,106,.15); color: var(--accent-red);    border-radius: 6px; padding: 3px 10px; font-size:.75rem; font-weight:600; }
+    .badge-unknown { background: rgba(255,193,7,.15);  color: var(--accent-yellow); border-radius: 6px; padding: 3px 10px; font-size:.75rem; font-weight:600; }
+
+    .avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00b4ff, var(--accent));
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: .85rem; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+
+    /* ── SECTION PAGES ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── LIVE MONITOR ── */
+    .live-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .live-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: transform .15s;
+    }
+    .live-card:hover { transform: translateY(-2px); }
+    .live-thumb {
+      height: 140px;
+      background: #0d1117;
+      display: flex; align-items: center; justify-content: center;
+      color: #3d444d; font-size: 3rem;
+      position: relative;
+    }
+    .live-stamp {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,.7);
+      font-size: .65rem; color: #aaa;
+      padding: 2px 7px; border-radius: 4px;
+    }
+    .live-info { padding: 10px 12px; }
+    .live-info .name { font-weight: 600; font-size: .85rem; color: #fff; }
+    .live-info .time { font-size: .72rem; color: #6e7681; }
+
+    /* ── PERSONA CARD ── */
+    .person-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 10px;
+      transition: transform .15s, border-color .15s;
+      cursor: pointer;
+    }
+    .person-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .person-avatar {
+      width: 68px; height: 68px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00b4ff33, var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem; font-weight: 700; color: #fff;
+      border: 2px solid var(--border-color);
+    }
+    .person-name { font-weight: 600; color: #fff; text-align: center; font-size: .9rem; }
+    .person-rol  { font-size: .72rem; color: #6e7681; text-align: center; }
+    .person-badge { font-size: .7rem; padding: 2px 9px; border-radius: 10px; font-weight:600; }
+    .badge-active   { background: rgba(0,229,160,.15); color: var(--accent); }
+    .badge-inactive { background: rgba(255,76,106,.15); color: var(--accent-red); }
+
+    /* ── SCHEDULE ── */
+    .day-pill {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 700;
+      border: 1px solid var(--border-color);
+      color: #6e7681; cursor: pointer; transition: all .15s;
+    }
+    .day-pill.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+    /* ── FORMS ── */
+    .form-control, .form-select {
+      background: #0d1117 !important;
+      border-color: var(--border-color) !important;
+      color: #c9d1d9 !important;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 2px rgba(0,229,160,.15) !important;
+    }
+    .btn-accent {
+      background: var(--accent); color: #000; font-weight: 600;
+      border: none; border-radius: 8px;
+      transition: opacity .15s;
+    }
+    .btn-accent:hover { opacity: .85; color: #000; }
+
+    /* ── CHART container ── */
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* ── ALERT ROW ── */
+    .alert-row {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .alert-row:last-child { border-bottom: none; }
+    .alert-icon-wrap {
+      width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+    }
+
+    /* ── SYSTEM STATUS ── */
+    .sys-metric {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-color);
+      font-size: .85rem;
+    }
+    .sys-metric:last-child { border-bottom: none; }
+    .metric-bar-wrap { width: 100px; height: 6px; background: #21262d; border-radius: 3px; overflow: hidden; }
+    .metric-bar { height: 100%; border-radius: 3px; }
+
+    /* ── UNKNOWN CARD ── */
+    .unknown-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px; overflow: hidden;
+    }
+    .unknown-thumb {
+      height: 160px; background: #0d1117;
+      display: flex; align-items: center; justify-content: center;
+      color: #3d444d; font-size: 3.5rem;
+    }
+    .unknown-actions { padding: 12px; display: flex; gap: 8px; }
+
+    /* ── REPORT CARD ── */
+    .report-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: padding-left .15s;
+    }
+    .report-item:hover { padding-left: 6px; }
+    .report-item:last-child { border-bottom: none; }
+    .report-icon { width: 40px; height: 40px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink:0; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #21262d; border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<nav id="sidebar">
+  <div class="sidebar-brand">
+    <div class="d-flex align-items-center">
+      <div class="logo-icon">🛡️</div>
+      <div>
+        <span>FaceGuard</span>
+        <small>Control de Acceso v2.0</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-section">Principal</div>
+  <button class="nav-link-custom active" onclick="showPage('inicio')">
+    <span class="nav-icon"><i class="bi bi-grid-1x2-fill"></i></span> Inicio
+  </button>
+  <button class="nav-link-custom" onclick="showPage('monitor')">
+    <span class="nav-icon"><i class="bi bi-camera-video-fill"></i></span> Monitor en Vivo
+  </button>
+
+  <div class="nav-section">Gestión</div>
+  <button class="nav-link-custom" onclick="showPage('personas')">
+    <span class="nav-icon"><i class="bi bi-people-fill"></i></span> Personas
+  </button>
+  <button class="nav-link-custom" onclick="showPage('imagenes')">
+    <span class="nav-icon"><i class="bi bi-images"></i></span> Base de Imágenes
+  </button>
+  <button class="nav-link-custom" onclick="showPage('horarios')">
+    <span class="nav-icon"><i class="bi bi-clock-fill"></i></span> Horarios de Acceso
+  </button>
+
+  <div class="nav-section">Registro</div>
+  <button class="nav-link-custom" onclick="showPage('historial')">
+    <span class="nav-icon"><i class="bi bi-journal-text"></i></span> Historial
+  </button>
+  <button class="nav-link-custom" onclick="showPage('desconocidos')">
+    <span class="nav-icon"><i class="bi bi-person-fill-exclamation"></i></span> Desconocidos
+    <span class="badge-count">3</span>
+  </button>
+  <button class="nav-link-custom" onclick="showPage('alertas')">
+    <span class="nav-icon"><i class="bi bi-bell-fill"></i></span> Alertas
+    <span class="badge-count">5</span>
+  </button>
+
+  <div class="nav-section">Análisis</div>
+  <button class="nav-link-custom" onclick="showPage('estadisticas')">
+    <span class="nav-icon"><i class="bi bi-bar-chart-fill"></i></span> Estadísticas
+  </button>
+  <button class="nav-link-custom" onclick="showPage('reportes')">
+    <span class="nav-icon"><i class="bi bi-file-earmark-bar-graph-fill"></i></span> Reportes
+  </button>
+
+  <div class="nav-section">Sistema</div>
+  <button class="nav-link-custom" onclick="showPage('configuracion')">
+    <span class="nav-icon"><i class="bi bi-sliders"></i></span> Configuración ESP32
+  </button>
+  <button class="nav-link-custom" onclick="showPage('sistema')">
+    <span class="nav-icon"><i class="bi bi-activity"></i></span> Estado del Sistema
+  </button>
+
+  <!-- ESP32 widget -->
+  <div class="esp32-status mt-auto">
+    <div class="d-flex align-items-center justify-content-between mb-1">
+      <span style="font-size:.75rem;color:#8b949e;font-weight:600;">ESP32-CAM</span>
+      <span style="font-size:.65rem;color:#6e7681;">192.168.0.50</span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="status-dot dot-green"></span>
+      <span style="font-size:.78rem;color:var(--accent);font-weight:600;">Conectado</span>
+    </div>
+    <div style="font-size:.65rem;color:#6e7681;margin-top:3px;">Ping: 12ms · Última captura: hace 4s</div>
+  </div>
+</nav>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<div id="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div>
+      <h5 id="page-title">Dashboard Principal</h5>
+      <div style="font-size:.72rem;color:#6e7681;" id="page-subtitle">Resumen general del sistema · Actualizado hace 2s</div>
+    </div>
+    <div class="topbar-right">
+      <div style="font-size:.78rem;color:#8b949e;" id="clock"></div>
+      <div class="notif-btn" onclick="showPage('alertas')">
+        <i class="bi bi-bell"></i>
+        <span class="notif-dot"></span>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:5px 12px;font-size:.78rem;cursor:pointer;" onclick="showPage('sistema')">
+        <span class="status-dot dot-green"></span>Sistema OK
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══════ PAGE: INICIO ══════ -->
+    <div class="page active" id="page-inicio">
+
+      <!-- Stat cards -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="stat-value">47</div>
+                <div class="stat-label">Accesos hoy</div>
+                <div class="stat-delta delta-up"><i class="bi bi-arrow-up"></i> +12% vs ayer</div>
+              </div>
+              <div class="stat-icon green"><i class="bi bi-door-open-fill"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="stat-value">8</div>
+                <div class="stat-label">Personas registradas</div>
+                <div class="stat-delta delta-up"><i class="bi bi-arrow-up"></i> +2 esta semana</div>
+              </div>
+              <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Desconocidos pendientes</div>
+                <div class="stat-delta delta-down"><i class="bi bi-exclamation-triangle"></i> Requieren revisión</div>
+              </div>
+              <div class="stat-icon yellow"><i class="bi bi-person-fill-exclamation"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Accesos denegados hoy</div>
+                <div class="stat-delta delta-down"><i class="bi bi-arrow-down"></i> -3 vs ayer</div>
+              </div>
+              <div class="stat-icon red"><i class="bi bi-shield-fill-x"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <!-- Últimos accesos -->
+        <div class="col-lg-8">
+          <div class="card-custom h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0 fw-semibold text-white">Últimos Accesos</h6>
+              <button class="btn btn-sm" style="background:var(--bg-dark);border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;" onclick="showPage('historial')">Ver todos <i class="bi bi-arrow-right"></i></button>
+            </div>
+            <table class="table table-custom mb-0">
+              <thead><tr>
+                <th>Persona</th><th>Hora</th><th>Score</th><th>Decisión</th><th>Frames</th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td><div class="d-flex align-items-center gap-2"><div class="avatar">JG</div><span>Juan García</span></div></td>
+                  <td><span style="color:#8b949e">14:32:07</span></td>
+                  <td><span style="color:var(--accent)">0.84</span></td>
+                  <td><span class="badge-permit">PERMITIDO</span></td>
+                  <td><span style="color:#6e7681">4/5</span></td>
+                </tr>
+                <tr>
+                  <td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#ff4c6a,#ff8c00)">?</div><span style="color:#8b949e">Desconocido</span></div></td>
+                  <td><span style="color:#8b949e">14:28:51</span></td>
+                  <td><span style="color:var(--accent-red)">0.21</span></td>
+                  <td><span class="badge-deny">DENEGADO</span></td>
+                  <td><span style="color:#6e7681">2/5</span></td>
+                </tr>
+                <tr>
+                  <td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#6f42c1,#00b4ff)">ML</div><span>María López</span></div></td>
+                  <td><span style="color:#8b949e">14:15:33</span></td>
+                  <td><span style="color:var(--accent)">0.91</span></td>
+                  <td><span class="badge-permit">PERMITIDO</span></td>
+                  <td><span style="color:#6e7681">5/5</span></td>
+                </tr>
+                <tr>
+                  <td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#fd7e14,#ffc107)">CR</div><span>Carlos Ruiz</span></div></td>
+                  <td><span style="color:#8b949e">13:58:12</span></td>
+                  <td><span style="color:var(--accent-yellow)">0.61</span></td>
+                  <td><span class="badge-permit">PERMITIDO</span></td>
+                  <td><span style="color:#6e7681">3/5</span></td>
+                </tr>
+                <tr>
+                  <td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#ff4c6a,#ff8c00)">?</div><span style="color:#8b949e">Desconocido</span></div></td>
+                  <td><span style="color:#8b949e">13:44:09</span></td>
+                  <td><span style="color:var(--accent-red)">0.18</span></td>
+                  <td><span class="badge-deny">DENEGADO</span></td>
+                  <td><span style="color:#6e7681">1/5</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Accesos por hora (mini chart) -->
+        <div class="col-lg-4">
+          <div class="card-custom mb-3">
+            <h6 class="mb-3 fw-semibold text-white">Accesos hoy por hora</h6>
+            <div class="chart-wrap"><canvas id="chartHora"></canvas></div>
+          </div>
+          <div class="card-custom">
+            <h6 class="mb-2 fw-semibold text-white">Personas activas ahora</h6>
+            <div style="font-size:.78rem;color:#6e7681;margin-bottom:10px;">En instalaciones según horario</div>
+            <div class="d-flex flex-column gap-2">
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar" style="width:28px;height:28px;font-size:.7rem;">JG</div>
+                <span style="font-size:.82rem;">Juan García</span>
+                <span class="ms-auto" style="font-size:.7rem;color:var(--accent);">● Dentro</span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar" style="width:28px;height:28px;font-size:.7rem;background:linear-gradient(135deg,#6f42c1,#00b4ff)">ML</div>
+                <span style="font-size:.82rem;">María López</span>
+                <span class="ms-auto" style="font-size:.7rem;color:var(--accent);">● Dentro</span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar" style="width:28px;height:28px;font-size:.7rem;background:linear-gradient(135deg,#fd7e14,#ffc107)">CR</div>
+                <span style="font-size:.82rem;">Carlos Ruiz</span>
+                <span class="ms-auto" style="font-size:.7rem;color:#6e7681;">● Fuera</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: MONITOR EN VIVO ══════ -->
+    <div class="page" id="page-monitor">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h6 class="fw-semibold text-white mb-1">Monitor en Vivo</h6>
+          <div style="font-size:.75rem;color:#6e7681;">Últimas capturas del ESP32-CAM · Actualización automática</div>
+        </div>
+        <div class="d-flex gap-2">
+          <span style="font-size:.75rem;color:var(--accent);display:flex;align-items:center;gap:5px;"><span class="status-dot dot-green"></span>EN VIVO</span>
+          <button class="btn btn-sm btn-accent px-3">Forzar Captura</button>
+        </div>
+      </div>
+
+      <!-- Live feed grid -->
+      <div class="live-grid mb-4">
+        <div class="live-card">
+          <div class="live-thumb" style="color:var(--accent);font-size:2.5rem;">
+            <i class="bi bi-person-bounding-box"></i>
+            <div class="live-stamp">14:32:07</div>
+            <div style="position:absolute;bottom:8px;left:8px;"><span class="badge-permit">PERMITIDO</span></div>
+          </div>
+          <div class="live-info"><div class="name">Juan García</div><div class="time">Score: 0.84 · 4/5 frames · dist: 0.41</div></div>
+        </div>
+        <div class="live-card">
+          <div class="live-thumb" style="color:var(--accent-red);">
+            <i class="bi bi-person-fill-slash"></i>
+            <div class="live-stamp">14:28:51</div>
+            <div style="position:absolute;bottom:8px;left:8px;"><span class="badge-deny">DENEGADO</span></div>
+          </div>
+          <div class="live-info"><div class="name" style="color:#8b949e;">Desconocido</div><div class="time">Score: 0.21 · 2/5 frames · sin match</div></div>
+        </div>
+        <div class="live-card">
+          <div class="live-thumb" style="color:#6f42c1;">
+            <i class="bi bi-person-bounding-box"></i>
+            <div class="live-stamp">14:15:33</div>
+            <div style="position:absolute;bottom:8px;left:8px;"><span class="badge-permit">PERMITIDO</span></div>
+          </div>
+          <div class="live-info"><div class="name">María López</div><div class="time">Score: 0.91 · 5/5 frames · dist: 0.32</div></div>
+        </div>
+        <div class="live-card">
+          <div class="live-thumb">
+            <i class="bi bi-camera-video-off"></i>
+            <div class="live-stamp">—</div>
+          </div>
+          <div class="live-info"><div class="name" style="color:#6e7681;">Esperando evento...</div><div class="time">Sin actividad</div></div>
+        </div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="row g-3">
+        <div class="col-md-4"><div class="card-custom text-center">
+          <div style="font-size:2rem;font-weight:700;color:var(--accent);">312ms</div>
+          <div style="font-size:.78rem;color:#6e7681;">Tiempo promedio de verificación</div>
+        </div></div>
+        <div class="col-md-4"><div class="card-custom text-center">
+          <div style="font-size:2rem;font-weight:700;color:#00b4ff;">3.8</div>
+          <div style="font-size:.78rem;color:#6e7681;">Frames válidos promedio (de 5)</div>
+        </div></div>
+        <div class="col-md-4"><div class="card-custom text-center">
+          <div style="font-size:2rem;font-weight:700;color:var(--accent-yellow);">89.4%</div>
+          <div style="font-size:.78rem;color:#6e7681;">Tasa de reconocimiento exitoso</div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: PERSONAS ══════ -->
+    <div class="page" id="page-personas">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h6 class="fw-semibold text-white mb-1">Personas Autorizadas</h6>
+          <div style="font-size:.75rem;color:#6e7681;">8 personas registradas · 7 activas</div>
+        </div>
+        <button class="btn btn-accent px-3" data-bs-toggle="modal" data-bs-target="#modalPersona">
+          <i class="bi bi-person-plus-fill me-2"></i>Agregar Persona
+        </button>
+      </div>
+
+      <!-- Search -->
+      <div class="mb-4 d-flex gap-2">
+        <input type="text" class="form-control" style="max-width:280px;" placeholder="🔍  Buscar persona..."/>
+        <select class="form-select" style="max-width:160px;">
+          <option>Todos los roles</option>
+          <option>Empleado</option>
+          <option>Administrador</option>
+          <option>Visitante</option>
+        </select>
+        <select class="form-select" style="max-width:140px;">
+          <option>Todos</option>
+          <option>Activos</option>
+          <option>Inactivos</option>
+        </select>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar">JG</div>
+            <div class="person-name">Juan García</div>
+            <div class="person-rol">Administrador</div>
+            <span class="person-badge badge-active">Activo</span>
+            <div style="font-size:.7rem;color:#6e7681;">3 fotos · 47 accesos</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar" style="background:linear-gradient(135deg,#6f42c1,#00b4ff)">ML</div>
+            <div class="person-name">María López</div>
+            <div class="person-rol">Empleado</div>
+            <span class="person-badge badge-active">Activo</span>
+            <div style="font-size:.7rem;color:#6e7681;">5 fotos · 31 accesos</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar" style="background:linear-gradient(135deg,#fd7e14,#ffc107)">CR</div>
+            <div class="person-name">Carlos Ruiz</div>
+            <div class="person-rol">Empleado</div>
+            <span class="person-badge badge-active">Activo</span>
+            <div style="font-size:.7rem;color:#6e7681;">2 fotos · 22 accesos</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar" style="background:linear-gradient(135deg,#20c997,#0dcaf0)">AP</div>
+            <div class="person-name">Ana Pérez</div>
+            <div class="person-rol">Empleado</div>
+            <span class="person-badge badge-active">Activo</span>
+            <div style="font-size:.7rem;color:#6e7681;">4 fotos · 18 accesos</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar" style="background:linear-gradient(135deg,#e83e8c,#fd7e14)">LM</div>
+            <div class="person-name">Luis Martínez</div>
+            <div class="person-rol">Visitante</div>
+            <span class="person-badge badge-active">Activo</span>
+            <div style="font-size:.7rem;color:#6e7681;">2 fotos · 5 accesos</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar" style="background:linear-gradient(135deg,#6c757d,#495057)">ST</div>
+            <div class="person-name">Sofia Torres</div>
+            <div class="person-rol">Empleado</div>
+            <span class="person-badge badge-inactive">Inactivo</span>
+            <div style="font-size:.7rem;color:#6e7681;">3 fotos · 9 accesos</div>
+          </div>
+        </div>
+        <!-- Add new card -->
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card" style="border-style:dashed;color:#6e7681;justify-content:center;" data-bs-toggle="modal" data-bs-target="#modalPersona">
+            <i class="bi bi-plus-circle" style="font-size:2rem;"></i>
+            <div style="font-size:.85rem;">Agregar Persona</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: IMÁGENES ══════ -->
+    <div class="page" id="page-imagenes">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h6 class="fw-semibold text-white mb-1">Base de Imágenes</h6>
+          <div style="font-size:.75rem;color:#6e7681;">Fotos de entrenamiento por persona</div>
+        </div>
+        <button class="btn btn-accent px-3"><i class="bi bi-cloud-upload me-2"></i>Subir Fotos</button>
+      </div>
+
+      <div class="mb-3 d-flex gap-2">
+        <select class="form-select" style="max-width:220px;">
+          <option>— Seleccionar persona —</option>
+          <option>Juan García</option>
+          <option>María López</option>
+          <option>Carlos Ruiz</option>
+        </select>
+      </div>
+
+      <div class="card-custom">
+        <div class="d-flex justify-content-between mb-3">
+          <div><span class="text-white fw-semibold">Juan García</span> <span style="font-size:.75rem;color:#6e7681;margin-left:8px;">3 imágenes · Última: hoy</span></div>
+          <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;">+ Agregar fotos</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;">
+          <div style="aspect-ratio:1;background:#0d1117;border-radius:8px;border:1px solid var(--border-color);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#3d444d;gap:4px;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent-red)'" onmouseout="this.style.borderColor='var(--border-color)'">
+            <i class="bi bi-person-bounding-box" style="font-size:2rem;color:#6e7681;"></i>
+            <span style="font-size:.65rem;color:#6e7681;">foto_1.jpg</span>
+          </div>
+          <div style="aspect-ratio:1;background:#0d1117;border-radius:8px;border:1px solid var(--border-color);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#3d444d;gap:4px;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent-red)'" onmouseout="this.style.borderColor='var(--border-color)'">
+            <i class="bi bi-person-bounding-box" style="font-size:2rem;color:#6e7681;"></i>
+            <span style="font-size:.65rem;color:#6e7681;">foto_2.jpg</span>
+          </div>
+          <div style="aspect-ratio:1;background:#0d1117;border-radius:8px;border:1px solid var(--border-color);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#3d444d;gap:4px;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent-red)'" onmouseout="this.style.borderColor='var(--border-color)'">
+            <i class="bi bi-person-bounding-box" style="font-size:2rem;color:#6e7681;"></i>
+            <span style="font-size:.65rem;color:#6e7681;">foto_3.jpg</span>
+          </div>
+          <div style="aspect-ratio:1;background:#0d1117;border-radius:8px;border:1px dashed #21262d;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#3d444d;gap:4px;cursor:pointer;">
+            <i class="bi bi-plus-lg" style="font-size:1.5rem;color:#6e7681;"></i>
+            <span style="font-size:.65rem;color:#6e7681;">Agregar</span>
+          </div>
+        </div>
+        <div class="mt-3 p-2" style="background:#0d1117;border-radius:8px;font-size:.75rem;color:#6e7681;">
+          <i class="bi bi-info-circle me-1"></i> Recomendado: mínimo 3 fotos con diferente iluminación y ángulo para mejor reconocimiento.
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: HORARIOS ══════ -->
+    <div class="page" id="page-horarios">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h6 class="fw-semibold text-white mb-1">Horarios de Acceso</h6>
+          <div style="font-size:.75rem;color:#6e7681;">Define en qué días y horas puede ingresar cada persona</div>
+        </div>
+        <button class="btn btn-accent px-3"><i class="bi bi-plus-lg me-2"></i>Nuevo Horario</button>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-5">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Seleccionar Persona</h6>
+            <div class="d-flex flex-column gap-2">
+              <div class="d-flex align-items-center gap-3 p-2 rounded" style="background:#0d1117;cursor:pointer;border:1px solid var(--accent);">
+                <div class="avatar" style="width:32px;height:32px;font-size:.8rem;">JG</div>
+                <div><div style="font-size:.85rem;font-weight:600;color:#fff;">Juan García</div><div style="font-size:.7rem;color:var(--accent);">Horario configurado</div></div>
+                <i class="bi bi-chevron-right ms-auto" style="color:#6e7681;"></i>
+              </div>
+              <div class="d-flex align-items-center gap-3 p-2 rounded" style="background:#0d1117;cursor:pointer;">
+                <div class="avatar" style="width:32px;height:32px;font-size:.8rem;background:linear-gradient(135deg,#6f42c1,#00b4ff)">ML</div>
+                <div><div style="font-size:.85rem;font-weight:600;color:#fff;">María López</div><div style="font-size:.7rem;color:var(--accent);">Horario configurado</div></div>
+                <i class="bi bi-chevron-right ms-auto" style="color:#6e7681;"></i>
+              </div>
+              <div class="d-flex align-items-center gap-3 p-2 rounded" style="background:#0d1117;cursor:pointer;">
+                <div class="avatar" style="width:32px;height:32px;font-size:.8rem;background:linear-gradient(135deg,#fd7e14,#ffc107)">CR</div>
+                <div><div style="font-size:.85rem;font-weight:600;color:#fff;">Carlos Ruiz</div><div style="font-size:.7rem;color:#6e7681;">Sin horario (acceso libre)</div></div>
+                <i class="bi bi-chevron-right ms-auto" style="color:#6e7681;"></i>
+              </div>
+              <div class="d-flex align-items-center gap-3 p-2 rounded" style="background:#0d1117;cursor:pointer;">
+                <div class="avatar" style="width:32px;height:32px;font-size:.8rem;background:linear-gradient(135deg,#20c997,#0dcaf0)">AP</div>
+                <div><div style="font-size:.85rem;font-weight:600;color:#fff;">Ana Pérez</div><div style="font-size:.7rem;color:var(--accent);">Horario configurado</div></div>
+                <i class="bi bi-chevron-right ms-auto" style="color:#6e7681;"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="card-custom">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-semibold text-white mb-0">Horario — Juan García</h6>
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" checked style="cursor:pointer;">
+                <label class="form-check-label" style="font-size:.8rem;color:#8b949e;">Activo</label>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <div style="font-size:.78rem;color:#6e7681;margin-bottom:10px;font-weight:600;">DÍAS PERMITIDOS</div>
+              <div class="d-flex gap-2">
+                <div class="day-pill active">Lu</div>
+                <div class="day-pill active">Ma</div>
+                <div class="day-pill active">Mi</div>
+                <div class="day-pill active">Ju</div>
+                <div class="day-pill active">Vi</div>
+                <div class="day-pill">Sa</div>
+                <div class="day-pill">Do</div>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+              <div class="col-6">
+                <label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">HORA ENTRADA</label>
+                <input type="time" class="form-control" value="08:00"/>
+              </div>
+              <div class="col-6">
+                <label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">HORA SALIDA</label>
+                <input type="time" class="form-control" value="18:00"/>
+              </div>
+            </div>
+
+            <div class="p-3 rounded mb-4" style="background:#0d1117;border:1px solid var(--border-color);">
+              <div style="font-size:.75rem;color:#6e7681;margin-bottom:4px;font-weight:600;">RESUMEN</div>
+              <div style="font-size:.82rem;color:#c9d1d9;">Lunes a Viernes · 08:00 — 18:00</div>
+              <div style="font-size:.72rem;color:var(--accent);margin-top:4px;">✓ Actualmente dentro de horario</div>
+            </div>
+
+            <button class="btn btn-accent w-100">Guardar Horario</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: HISTORIAL ══════ -->
+    <div class="page" id="page-historial">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h6 class="fw-semibold text-white mb-1">Historial de Accesos</h6>
+          <div style="font-size:.75rem;color:#6e7681;">52 registros en total</div>
+        </div>
+        <button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.78rem;"><i class="bi bi-download me-1"></i>Exportar CSV</button>
+      </div>
+
+      <div class="d-flex gap-2 mb-3 flex-wrap">
+        <input type="date" class="form-control" style="max-width:160px;" value="2025-06-18"/>
+        <input type="date" class="form-control" style="max-width:160px;" value="2025-06-18"/>
+        <select class="form-select" style="max-width:150px;"><option>Todas</option><option>Permitido</option><option>Denegado</option></select>
+        <select class="form-select" style="max-width:180px;"><option>Todas las personas</option><option>Juan García</option><option>María López</option></select>
+        <button class="btn btn-accent px-3">Filtrar</button>
+      </div>
+
+      <div class="card-custom">
+        <table class="table table-custom mb-0">
+          <thead><tr>
+            <th>#</th><th>Persona</th><th>Fecha/Hora</th><th>Score</th><th>Distancia</th><th>Frames</th><th>Decisión</th><th>Motivo</th>
+          </tr></thead>
+          <tbody>
+            <tr><td style="color:#6e7681">52</td><td><div class="d-flex align-items-center gap-2"><div class="avatar">JG</div>Juan García</div></td><td style="color:#8b949e">2025-06-18 14:32</td><td style="color:var(--accent)">0.84</td><td>0.41</td><td>4/5</td><td><span class="badge-permit">PERMITIDO</span></td><td style="font-size:.72rem;color:#6e7681;">4 frames apoyan</td></tr>
+            <tr><td style="color:#6e7681">51</td><td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#ff4c6a,#ff8c00)">?</div><span style="color:#8b949e">Desconocido</span></div></td><td style="color:#8b949e">2025-06-18 14:28</td><td style="color:var(--accent-red)">0.21</td><td>—</td><td>2/5</td><td><span class="badge-deny">DENEGADO</span></td><td style="font-size:.72rem;color:#6e7681;">sin_matches_validos</td></tr>
+            <tr><td style="color:#6e7681">50</td><td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#6f42c1,#00b4ff)">ML</div>María López</div></td><td style="color:#8b949e">2025-06-18 14:15</td><td style="color:var(--accent)">0.91</td><td>0.32</td><td>5/5</td><td><span class="badge-permit">PERMITIDO</span></td><td style="font-size:.72rem;color:#6e7681;">5 frames apoyan</td></tr>
+            <tr><td style="color:#6e7681">49</td><td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#fd7e14,#ffc107)">CR</div>Carlos Ruiz</div></td><td style="color:#8b949e">2025-06-18 13:58</td><td style="color:var(--accent-yellow)">0.61</td><td>0.55</td><td>3/5</td><td><span class="badge-permit">PERMITIDO</span></td><td style="font-size:.72rem;color:#6e7681;">3 frames apoyan</td></tr>
+            <tr><td style="color:#6e7681">48</td><td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#ff4c6a,#ff8c00)">?</div><span style="color:#8b949e">Desconocido</span></div></td><td style="color:#8b949e">2025-06-18 13:44</td><td style="color:var(--accent-red)">0.18</td><td>—</td><td>1/5</td><td><span class="badge-deny">DENEGADO</span></td><td style="font-size:.72rem;color:#6e7681;">pocos_frames_validos</td></tr>
+            <tr><td style="color:#6e7681">47</td><td><div class="d-flex align-items-center gap-2"><div class="avatar">JG</div>Juan García</div></td><td style="color:#8b949e">2025-06-18 09:01</td><td style="color:var(--accent)">0.88</td><td>0.38</td><td>5/5</td><td><span class="badge-permit">PERMITIDO</span></td><td style="font-size:.72rem;color:#6e7681;">5 frames apoyan</td></tr>
+          </tbody>
+        </table>
+        <div class="d-flex justify-content-between align-items-center mt-3" style="font-size:.78rem;color:#6e7681;">
+          <span>Mostrando 1–6 de 52 registros</span>
+          <div class="d-flex gap-1">
+            <button class="btn btn-sm" style="background:var(--bg-dark);border:1px solid var(--border-color);color:#8b949e;border-radius:6px;">‹</button>
+            <button class="btn btn-sm" style="background:var(--accent);border:none;color:#000;border-radius:6px;font-weight:700;">1</button>
+            <button class="btn btn-sm" style="background:var(--bg-dark);border:1px solid var(--border-color);color:#8b949e;border-radius:6px;">2</button>
+            <button class="btn btn-sm" style="background:var(--bg-dark);border:1px solid var(--border-color);color:#8b949e;border-radius:6px;">›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: DESCONOCIDOS ══════ -->
+    <div class="page" id="page-desconocidos">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h6 class="fw-semibold text-white mb-1">Rostros Desconocidos</h6>
+          <div style="font-size:.75rem;color:#6e7681;">3 pendientes de revisión</div>
+        </div>
+      </div>
+      <div class="alert" style="background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.3);color:var(--accent-yellow);border-radius:10px;font-size:.83rem;">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Estos rostros no fueron reconocidos. Puedes registrarlos como persona nueva o descartar el evento.
+      </div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="unknown-card">
+            <div class="unknown-thumb"><i class="bi bi-person-fill-exclamation"></i></div>
+            <div class="p-3">
+              <div style="font-size:.72rem;color:#6e7681;">2025-06-18 14:28:51 · Score: 0.21</div>
+              <div style="font-size:.78rem;color:#c9d1d9;margin-top:4px;">Sin match · 2/5 frames válidos</div>
+              <div class="unknown-actions px-0">
+                <button class="btn btn-sm btn-accent flex-fill" data-bs-toggle="modal" data-bs-target="#modalPersona">Registrar</button>
+                <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.15);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;">Descartar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="unknown-card">
+            <div class="unknown-thumb"><i class="bi bi-person-fill-exclamation"></i></div>
+            <div class="p-3">
+              <div style="font-size:.72rem;color:#6e7681;">2025-06-18 13:44:09 · Score: 0.18</div>
+              <div style="font-size:.78rem;color:#c9d1d9;margin-top:4px;">Sin match · 1/5 frames válidos</div>
+              <div class="unknown-actions px-0">
+                <button class="btn btn-sm btn-accent flex-fill" data-bs-toggle="modal" data-bs-target="#modalPersona">Registrar</button>
+                <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.15);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;">Descartar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="unknown-card">
+            <div class="unknown-thumb"><i class="bi bi-person-fill-exclamation"></i></div>
+            <div class="p-3">
+              <div style="font-size:.72rem;color:#6e7681;">2025-06-17 09:12:35 · Score: 0.30</div>
+              <div style="font-size:.78rem;color:#c9d1d9;margin-top:4px;">Sin match · 3/5 frames válidos</div>
+              <div class="unknown-actions px-0">
+                <button class="btn btn-sm btn-accent flex-fill" data-bs-toggle="modal" data-bs-target="#modalPersona">Registrar</button>
+                <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.15);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;">Descartar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: ALERTAS ══════ -->
+    <div class="page" id="page-alertas">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h6 class="fw-semibold text-white mb-1">Alertas del Sistema</h6>
+          <div style="font-size:.75rem;color:#6e7681;">5 alertas · 3 no leídas</div>
+        </div>
+        <button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.78rem;">Marcar todas como leídas</button>
+      </div>
+      <div class="card-custom">
+        <div class="alert-row">
+          <div class="alert-icon-wrap" style="background:rgba(255,76,106,.12);color:var(--accent-red);"><i class="bi bi-shield-fill-exclamation"></i></div>
+          <div class="flex-grow-1">
+            <div style="font-size:.85rem;font-weight:600;color:#fff;">Acceso denegado reiteradamente</div>
+            <div style="font-size:.75rem;color:#6e7681;">Mismo rostro desconocido en 3 intentos consecutivos · hace 1h</div>
+          </div>
+          <span style="font-size:.65rem;background:rgba(255,76,106,.15);color:var(--accent-red);padding:2px 8px;border-radius:10px;">Nueva</span>
+        </div>
+        <div class="alert-row">
+          <div class="alert-icon-wrap" style="background:rgba(255,193,7,.12);color:var(--accent-yellow);"><i class="bi bi-person-fill-exclamation"></i></div>
+          <div class="flex-grow-1">
+            <div style="font-size:.85rem;font-weight:600;color:#fff;">3 desconocidos pendientes de revisión</div>
+            <div style="font-size:.75rem;color:#6e7681;">Requieren aprobación o descarte · hace 2h</div>
+          </div>
+          <span style="font-size:.65rem;background:rgba(255,193,7,.15);color:var(--accent-yellow);padding:2px 8px;border-radius:10px;">Nueva</span>
+        </div>
+        <div class="alert-row">
+          <div class="alert-icon-wrap" style="background:rgba(0,229,160,.12);color:var(--accent);"><i class="bi bi-person-plus-fill"></i></div>
+          <div class="flex-grow-1">
+            <div style="font-size:.85rem;font-weight:600;color:#fff;">Nueva persona registrada</div>
+            <div style="font-size:.75rem;color:#6e7681;">Luis Martínez fue agregado al sistema · hace 3h</div>
+          </div>
+          <span style="font-size:.65rem;background:rgba(0,229,160,.15);color:var(--accent);padding:2px 8px;border-radius:10px;">Nueva</span>
+        </div>
+        <div class="alert-row" style="opacity:.55;">
+          <div class="alert-icon-wrap" style="background:#21262d;color:#6e7681;"><i class="bi bi-wifi-off"></i></div>
+          <div class="flex-grow-1">
+            <div style="font-size:.85rem;font-weight:600;">ESP32 sin respuesta</div>
+            <div style="font-size:.75rem;color:#6e7681;">Desconexión de 12s · ayer 22:14</div>
+          </div>
+          <span style="font-size:.65rem;color:#6e7681;">Leída</span>
+        </div>
+        <div class="alert-row" style="opacity:.55;">
+          <div class="alert-icon-wrap" style="background:#21262d;color:#6e7681;"><i class="bi bi-clock-history"></i></div>
+          <div class="flex-grow-1">
+            <div style="font-size:.85rem;font-weight:600;">Acceso fuera de horario bloqueado</div>
+            <div style="font-size:.75rem;color:#6e7681;">Carlos Ruiz intentó acceso sábado a las 10:30 · ayer</div>
+          </div>
+          <span style="font-size:.65rem;color:#6e7681;">Leída</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: ESTADÍSTICAS ══════ -->
+    <div class="page" id="page-estadisticas">
+      <h6 class="fw-semibold text-white mb-4">Estadísticas</h6>
+      <div class="row g-3 mb-3">
+        <div class="col-lg-8">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Accesos por día (últimos 7 días)</h6>
+            <div class="chart-wrap" style="height:240px;"><canvas id="chartSemana"></canvas></div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Decisiones (este mes)</h6>
+            <div class="chart-wrap" style="height:200px;"><canvas id="chartDecision"></canvas></div>
+            <div class="d-flex justify-content-around mt-3">
+              <div class="text-center"><div style="font-size:1.3rem;font-weight:700;color:var(--accent);">87%</div><div style="font-size:.7rem;color:#6e7681;">Permitidos</div></div>
+              <div class="text-center"><div style="font-size:1.3rem;font-weight:700;color:var(--accent-red);">13%</div><div style="font-size:.7rem;color:#6e7681;">Denegados</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Top personas por accesos</h6>
+            <div class="d-flex flex-column gap-3">
+              <div><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;">Juan García</span><span style="font-size:.78rem;color:#6e7681;">47</span></div><div style="height:6px;background:#21262d;border-radius:3px;"><div style="width:100%;height:100%;background:var(--accent);border-radius:3px;"></div></div></div>
+              <div><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;">María López</span><span style="font-size:.78rem;color:#6e7681;">31</span></div><div style="height:6px;background:#21262d;border-radius:3px;"><div style="width:66%;height:100%;background:#00b4ff;border-radius:3px;"></div></div></div>
+              <div><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;">Carlos Ruiz</span><span style="font-size:.78rem;color:#6e7681;">22</span></div><div style="height:6px;background:#21262d;border-radius:3px;"><div style="width:47%;height:100%;background:var(--accent-yellow);border-radius:3px;"></div></div></div>
+              <div><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;">Ana Pérez</span><span style="font-size:.78rem;color:#6e7681;">18</span></div><div style="height:6px;background:#21262d;border-radius:3px;"><div style="width:38%;height:100%;background:#e83e8c;border-radius:3px;"></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Accesos por hora del día</h6>
+            <div class="chart-wrap" style="height:160px;"><canvas id="chartHeatmap"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: REPORTES ══════ -->
+    <div class="page" id="page-reportes">
+      <h6 class="fw-semibold text-white mb-4">Reportes</h6>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-1">Generar Reporte</h6>
+            <div style="font-size:.78rem;color:#6e7681;margin-bottom:16px;">Exporta los datos del sistema en el rango que necesites</div>
+            <div class="mb-3">
+              <label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">TIPO DE REPORTE</label>
+              <select class="form-select">
+                <option>Historial de accesos completo</option>
+                <option>Accesos por persona</option>
+                <option>Accesos denegados</option>
+                <option>Actividad por horario</option>
+                <option>Resumen mensual</option>
+              </select>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">DESDE</label><input type="date" class="form-control" value="2025-06-01"/></div>
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">HASTA</label><input type="date" class="form-control" value="2025-06-18"/></div>
+            </div>
+            <div class="mb-3">
+              <label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">FORMATO</label>
+              <div class="d-flex gap-2">
+                <div class="flex-fill p-2 text-center rounded" style="background:rgba(0,229,160,.12);border:1px solid var(--accent);cursor:pointer;font-size:.82rem;color:var(--accent);font-weight:600;">CSV</div>
+                <div class="flex-fill p-2 text-center rounded" style="background:#0d1117;border:1px solid var(--border-color);cursor:pointer;font-size:.82rem;color:#6e7681;">PDF</div>
+                <div class="flex-fill p-2 text-center rounded" style="background:#0d1117;border:1px solid var(--border-color);cursor:pointer;font-size:.82rem;color:#6e7681;">Excel</div>
+              </div>
+            </div>
+            <button class="btn btn-accent w-100"><i class="bi bi-download me-2"></i>Descargar Reporte</button>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Reportes Recientes</h6>
+            <div class="report-item">
+              <div class="report-icon" style="background:rgba(0,229,160,.1);color:var(--accent);"><i class="bi bi-file-earmark-spreadsheet"></i></div>
+              <div class="flex-grow-1"><div style="font-size:.85rem;font-weight:600;color:#fff;">Historial junio 2025</div><div style="font-size:.72rem;color:#6e7681;">CSV · 52 registros · hace 2 días</div></div>
+              <i class="bi bi-download" style="color:#6e7681;"></i>
+            </div>
+            <div class="report-item">
+              <div class="report-icon" style="background:rgba(0,180,255,.1);color:#00b4ff;"><i class="bi bi-file-earmark-pdf"></i></div>
+              <div class="flex-grow-1"><div style="font-size:.85rem;font-weight:600;color:#fff;">Resumen mayo 2025</div><div style="font-size:.72rem;color:#6e7681;">PDF · 31 días · hace 18 días</div></div>
+              <i class="bi bi-download" style="color:#6e7681;"></i>
+            </div>
+            <div class="report-item">
+              <div class="report-icon" style="background:rgba(255,193,7,.1);color:var(--accent-yellow);"><i class="bi bi-file-earmark-bar-graph"></i></div>
+              <div class="flex-grow-1"><div style="font-size:.85rem;font-weight:600;color:#fff;">Accesos denegados Q1</div><div style="font-size:.72rem;color:#6e7681;">Excel · 3 meses · hace 1 mes</div></div>
+              <i class="bi bi-download" style="color:#6e7681;"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: CONFIGURACIÓN ESP32 ══════ -->
+    <div class="page" id="page-configuracion">
+      <h6 class="fw-semibold text-white mb-4">Configuración ESP32</h6>
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card-custom mb-3">
+            <h6 class="fw-semibold text-white mb-3">Conexión</h6>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">IP DEL ESP32-CAM</label><input type="text" class="form-control" value="192.168.0.50"/></div>
+            <div class="row g-2 mb-3">
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">TIMEOUT STATUS (s)</label><input type="number" class="form-control" value="1.0" step="0.1"/></div>
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">TIMEOUT CAPTURA (s)</label><input type="number" class="form-control" value="4.0" step="0.1"/></div>
+            </div>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">INTERVALO POLLING (s)</label><input type="number" class="form-control" value="0.15" step="0.01"/></div>
+          </div>
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Captura</h6>
+            <div class="row g-2 mb-3">
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">FRAMES POR EVENTO</label><input type="number" class="form-control" value="5" min="1" max="10"/></div>
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">CALIDAD JPEG (1-63)</label><input type="number" class="form-control" value="10" min="1" max="63"/></div>
+            </div>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">RESOLUCIÓN</label><select class="form-select"><option value="vga" selected>VGA (640×480)</option><option value="svga">SVGA (800×600)</option><option value="xga">XGA (1024×768)</option><option value="qvga">QVGA (320×240) — más rápida</option></select></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" checked><label class="form-check-label" style="font-size:.83rem;">Decisión temprana (Early Grant)</label></div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card-custom mb-3">
+            <h6 class="fw-semibold text-white mb-3">Umbrales de Reconocimiento</h6>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">DISTANCIA MÁXIMA (0–1)</label><input type="range" class="form-range" min="0" max="1" step="0.01" value="0.68" oninput="this.nextElementSibling.textContent=this.value"/><div style="font-size:.85rem;color:var(--accent);font-weight:600;">0.68</div></div>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">SCORE MÍNIMO (0–1)</label><input type="range" class="form-range" min="0" max="1" step="0.01" value="0.20" oninput="this.nextElementSibling.textContent=this.value"/><div style="font-size:.85rem;color:var(--accent);font-weight:600;">0.20</div></div>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">BLUR MÍNIMO</label><input type="number" class="form-control" value="20.0" step="1"/></div>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">FRAMES MÍNIMOS VÁLIDOS</label><input type="number" class="form-control" value="1" min="1"/></div>
+          </div>
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Alertas por Email</h6>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">EMAIL DE NOTIFICACIONES</label><input type="email" class="form-control" placeholder="admin@empresa.com"/></div>
+            <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" checked><label class="form-check-label" style="font-size:.83rem;">Alertar en acceso denegado</label></div>
+            <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" checked><label class="form-check-label" style="font-size:.83rem;">Alertar si ESP32 se desconecta</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:.83rem;">Reporte diario automático</label></div>
+          </div>
+          <button class="btn btn-accent w-100 mt-3">Guardar Configuración</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: SISTEMA ══════ -->
+    <div class="page" id="page-sistema">
+      <h6 class="fw-semibold text-white mb-4">Estado del Sistema</h6>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card-custom mb-3">
+            <h6 class="fw-semibold text-white mb-3">Reconocimiento</h6>
+            <div class="d-flex gap-3 mb-3">
+              <div class="p-3 rounded flex-fill text-center" style="background:#0d1117;border:1px solid var(--accent);">
+                <div class="status-dot dot-green" style="display:inline-block;"></div>
+                <div style="font-size:.82rem;color:var(--accent);font-weight:600;margin-top:4px;">Motor ACTIVO</div>
+                <div style="font-size:.7rem;color:#6e7681;">main.py corriendo</div>
+              </div>
+              <div class="p-3 rounded flex-fill text-center" style="background:#0d1117;border:1px solid var(--border-color);">
+                <div style="font-size:1.2rem;color:#fff;font-weight:700;">ArcFace</div>
+                <div style="font-size:.7rem;color:#6e7681;">Modelo cargado</div>
+              </div>
+            </div>
+            <div class="sys-metric"><span>Modelo</span><span style="color:var(--accent);">ArcFace + OpenCV</span></div>
+            <div class="sys-metric"><span>Cache embeddings</span><span style="color:#8b949e;">8 personas · 19 fotos</span></div>
+            <div class="sys-metric"><span>Última verificación</span><span style="color:#8b949e;">hace 4 segundos</span></div>
+            <div class="sys-metric"><span>Requests procesados hoy</span><span style="color:#8b949e;">52</span></div>
+          </div>
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Recursos del Servidor</h6>
+            <div class="sys-metric"><span>CPU</span><div class="d-flex align-items-center gap-2"><div class="metric-bar-wrap"><div class="metric-bar" style="width:23%;background:var(--accent);"></div></div><span style="color:#8b949e;font-size:.8rem;">23%</span></div></div>
+            <div class="sys-metric"><span>Memoria RAM</span><div class="d-flex align-items-center gap-2"><div class="metric-bar-wrap"><div class="metric-bar" style="width:61%;background:#00b4ff;"></div></div><span style="color:#8b949e;font-size:.8rem;">61%</span></div></div>
+            <div class="sys-metric"><span>Disco</span><div class="d-flex align-items-center gap-2"><div class="metric-bar-wrap"><div class="metric-bar" style="width:34%;background:var(--accent-yellow);"></div></div><span style="color:#8b949e;font-size:.8rem;">34%</span></div></div>
+            <div class="sys-metric"><span>Uptime</span><span style="color:#8b949e;">5h 42m</span></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card-custom mb-3">
+            <h6 class="fw-semibold text-white mb-3">ESP32-CAM</h6>
+            <div class="sys-metric"><span>Estado</span><span style="color:var(--accent);">● Conectado</span></div>
+            <div class="sys-metric"><span>IP</span><span style="color:#8b949e;">192.168.0.50</span></div>
+            <div class="sys-metric"><span>Ping promedio</span><span style="color:#8b949e;">12ms</span></div>
+            <div class="sys-metric"><span>Última respuesta</span><span style="color:#8b949e;">hace 4s</span></div>
+            <div class="sys-metric"><span>Errores de captura hoy</span><span style="color:var(--accent-yellow);">2</span></div>
+            <div class="sys-metric"><span>Tiempo promedio captura</span><span style="color:#8b949e;">312ms</span></div>
+          </div>
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Base de Datos</h6>
+            <div class="sys-metric"><span>Motor</span><span style="color:#8b949e;">SQLite</span></div>
+            <div class="sys-metric"><span>Personas</span><span style="color:#8b949e;">8 registradas</span></div>
+            <div class="sys-metric"><span>Imágenes</span><span style="color:#8b949e;">19 fotos</span></div>
+            <div class="sys-metric"><span>Registros de acceso</span><span style="color:#8b949e;">52 entradas</span></div>
+            <div class="sys-metric"><span>Tamaño BD</span><span style="color:#8b949e;">1.2 MB</span></div>
+            <div class="mt-3 d-flex gap-2">
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.78rem;">Reconstruir Cache</button>
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.78rem;">Backup BD</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ══════════════ MODAL: AGREGAR PERSONA ══════════════ -->
+<div class="modal fade" id="modalPersona" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;">
+      <div class="modal-header" style="border-color:var(--border-color);">
+        <h6 class="modal-title text-white fw-semibold">Registrar Nueva Persona</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOMBRE *</label><input type="text" class="form-control" placeholder="Juan"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">APELLIDO *</label><input type="text" class="form-control" placeholder="García"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">EMAIL</label><input type="email" class="form-control" placeholder="juan@empresa.com"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">TELÉFONO</label><input type="tel" class="form-control" placeholder="+57 300 000 0000"/></div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">ROL</label>
+            <select class="form-select"><option>Empleado</option><option>Administrador</option><option>Visitante</option></select>
+          </div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">FOTOS (mínimo 1) *</label>
+            <div style="border:2px dashed var(--border-color);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-color)'">
+              <i class="bi bi-cloud-upload" style="font-size:2rem;color:#6e7681;"></i>
+              <div style="font-size:.83rem;color:#6e7681;margin-top:8px;">Arrastra fotos aquí o haz clic para seleccionar</div>
+              <div style="font-size:.7rem;color:#444;margin-top:4px;">JPG, PNG — Recomendado 3+ fotos</div>
+              <input type="file" multiple accept="image/*" style="display:none;">
+            </div>
+          </div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOTAS</label><textarea class="form-control" rows="2" placeholder="Información adicional..."></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-color:var(--border-color);">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-accent px-4">Guardar y Procesar Fotos</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── NAVIGATION ──
+const pages = {
+  'inicio':        { title: 'Dashboard Principal',      subtitle: 'Resumen general del sistema · Actualizado hace 2s' },
+  'monitor':       { title: 'Monitor en Vivo',          subtitle: 'Capturas del ESP32-CAM en tiempo real' },
+  'personas':      { title: 'Personas Autorizadas',     subtitle: 'Gestión de usuarios con acceso al sistema' },
+  'imagenes':      { title: 'Base de Imágenes',         subtitle: 'Fotos de entrenamiento por persona' },
+  'horarios':      { title: 'Horarios de Acceso',       subtitle: 'Control de horarios por persona' },
+  'historial':     { title: 'Historial de Accesos',     subtitle: 'Todos los eventos registrados' },
+  'desconocidos':  { title: 'Rostros Desconocidos',     subtitle: 'Eventos sin identificación pendientes de revisión' },
+  'alertas':       { title: 'Alertas del Sistema',      subtitle: '5 alertas · 3 no leídas' },
+  'estadisticas':  { title: 'Estadísticas',             subtitle: 'Análisis de accesos y tendencias' },
+  'reportes':      { title: 'Reportes',                 subtitle: 'Exporta datos del sistema' },
+  'configuracion': { title: 'Configuración ESP32',      subtitle: 'Parámetros del hardware y reconocimiento' },
+  'sistema':       { title: 'Estado del Sistema',       subtitle: 'Monitor de recursos y conectividad' },
+};
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link-custom').forEach(b => b.classList.remove('active'));
+
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+
+  document.querySelectorAll('.nav-link-custom').forEach(b => {
+    if (b.getAttribute('onclick')?.includes("'" + id + "'")) b.classList.add('active');
+  });
+
+  const info = pages[id] || {};
+  document.getElementById('page-title').textContent = info.title || id;
+  document.getElementById('page-subtitle').textContent = info.subtitle || '';
+
+  if (id === 'estadisticas') setTimeout(initCharts, 50);
+}
+
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── CHARTS ──
+let chartsInited = false;
+function initCharts() {
+  if (chartsInited) return;
+  chartsInited = true;
+
+  const gridColor = '#21262d';
+  const tickColor = '#6e7681';
+  const defaults = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 } } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 } }, beginAtZero: true }
+    }
+  };
+
+  // Accesos por hora (inicio)
+  new Chart(document.getElementById('chartHora'), {
+    type: 'bar',
+    data: {
+      labels: ['7','8','9','10','11','12','13','14','15','16','17'],
+      datasets: [{ data: [1,4,7,5,3,6,8,11,5,3,2], backgroundColor: 'rgba(0,229,160,.6)', borderRadius: 4 }]
+    },
+    options: { ...defaults, plugins: { legend: { display: false } } }
+  });
+
+  // Semana
+  new Chart(document.getElementById('chartSemana'), {
+    type: 'line',
+    data: {
+      labels: ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],
+      datasets: [
+        { label:'Permitidos', data: [38,42,35,50,47,12,5], borderColor:'#00e5a0', backgroundColor:'rgba(0,229,160,.08)', tension:.4, fill:true, pointRadius:4, pointBackgroundColor:'#00e5a0' },
+        { label:'Denegados', data: [3,6,4,7,5,2,1], borderColor:'#ff4c6a', backgroundColor:'rgba(255,76,106,.06)', tension:.4, fill:true, pointRadius:4, pointBackgroundColor:'#ff4c6a' }
+      ]
+    },
+    options: { ...defaults, plugins: { legend: { display: true, labels: { color: '#8b949e', font: { size: 11 } } } } }
+  });
+
+  // Dona decisiones
+  new Chart(document.getElementById('chartDecision'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Permitidos','Denegados'],
+      datasets: [{ data: [87,13], backgroundColor: ['#00e5a0','#ff4c6a'], borderColor: '#161b22', borderWidth: 3 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '72%' }
+  });
+
+  // Heatmap hora del día
+  new Chart(document.getElementById('chartHeatmap'), {
+    type: 'bar',
+    data: {
+      labels: ['6','7','8','9','10','11','12','13','14','15','16','17','18'],
+      datasets: [{ data: [0,1,8,9,6,4,5,7,10,6,4,3,1], backgroundColor: 'rgba(0,180,255,.5)', borderRadius: 3 }]
+    },
+    options: { ...defaults }
+  });
+}
+
+// init home chart
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    new Chart(document.getElementById('chartHora'), {
+      type: 'bar',
+      data: {
+        labels: ['7','8','9','10','11','12','13','14','15','16','17'],
+        datasets: [{ data: [1,4,7,5,3,6,8,11,5,3,2], backgroundColor: 'rgba(0,229,160,.6)', borderRadius: 4 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#21262d' }, ticks: { color: '#6e7681', font: { size: 10 } } },
+          y: { grid: { color: '#21262d' }, ticks: { color: '#6e7681', font: { size: 10 } }, beginAtZero: true }
+        }
+      }
+    });
+  }, 100);
+});
+
+// ── Day pills toggle ──
+document.querySelectorAll('.day-pill').forEach(pill => {
+  pill.addEventListener('click', () => pill.classList.toggle('active'));
+});
+</script>
+</body>
+</html>
