@@ -75,7 +75,7 @@
       font-weight: 600;
       letter-spacing: .1em;
       text-transform: uppercase;
-      color: #2a4060;
+      color: #3a5a7a;
     }
 
     .nav-link-custom {
@@ -487,47 +487,56 @@
     <div class="sidebar-logo-sub">Vigilant Access</div>
   </div>
 
-  <div style="padding: 10px 0 6px;">
+  <div style="padding: 8px 0 6px;">
+    <div class="nav-section">Principal</div>
     <button class="nav-link-custom active" onclick="showPage('inicio')">
-      <span class="nav-icon"><i class="bi bi-grid-1x2"></i></span> Dashboard
+      <span class="nav-icon"><i class="bi bi-grid-1x2"></i></span> Inicio
     </button>
     <button class="nav-link-custom" onclick="showPage('monitor')">
-      <span class="nav-icon"><i class="bi bi-camera-video"></i></span> Live Monitor
+      <span class="nav-icon"><i class="bi bi-camera-video"></i></span> Monitor en Vivo
     </button>
+
+    <div class="nav-section">Gestión</div>
     <button class="nav-link-custom" onclick="showPage('personas')">
-      <span class="nav-icon"><i class="bi bi-people"></i></span> People Management
+      <span class="nav-icon"><i class="bi bi-people"></i></span> Personas
     </button>
     <button class="nav-link-custom" onclick="showPage('imagenes')">
-      <span class="nav-icon"><i class="bi bi-images"></i></span> Image Database
+      <span class="nav-icon"><i class="bi bi-images"></i></span> Base de Imágenes
     </button>
     <button class="nav-link-custom" onclick="showPage('horarios')">
-      <span class="nav-icon"><i class="bi bi-calendar-check"></i></span> Access Schedules
+      <span class="nav-icon"><i class="bi bi-calendar-check"></i></span> Horarios de Acceso
     </button>
+
+    <div class="nav-section">Registro</div>
     <button class="nav-link-custom" onclick="showPage('historial')">
-      <span class="nav-icon"><i class="bi bi-clock-history"></i></span> Access History
+      <span class="nav-icon"><i class="bi bi-clock-history"></i></span> Historial
     </button>
     <button class="nav-link-custom" onclick="showPage('desconocidos')">
-      <span class="nav-icon"><i class="bi bi-person-fill-exclamation"></i></span> Unknowns
+      <span class="nav-icon"><i class="bi bi-person-fill-exclamation"></i></span> Desconocidos
       <span class="badge-count">3</span>
     </button>
     <button class="nav-link-custom" onclick="showPage('alertas')">
-      <span class="nav-icon"><i class="bi bi-bell"></i></span> Alerts
+      <span class="nav-icon"><i class="bi bi-bell"></i></span> Alertas
       <span class="badge-count">5</span>
     </button>
+
+    <div class="nav-section">Análisis</div>
     <button class="nav-link-custom" onclick="showPage('estadisticas')">
-      <span class="nav-icon"><i class="bi bi-bar-chart-line"></i></span> Statistics
+      <span class="nav-icon"><i class="bi bi-bar-chart-line"></i></span> Estadísticas
     </button>
     <button class="nav-link-custom" onclick="showPage('reportes')">
       <span class="nav-icon"><i class="bi bi-file-earmark-bar-graph"></i></span> Reportes
     </button>
+
+    <div class="nav-section">Sistema</div>
     <button class="nav-link-custom" onclick="showPage('puertas')">
-      <span class="nav-icon"><i class="bi bi-door-closed"></i></span> Múlt. Puertas
+      <span class="nav-icon"><i class="bi bi-door-closed"></i></span> Múltiples Puertas
     </button>
     <button class="nav-link-custom" onclick="showPage('configuracion')">
-      <span class="nav-icon"><i class="bi bi-sliders"></i></span> System Config
+      <span class="nav-icon"><i class="bi bi-sliders"></i></span> Configuración ESP32
     </button>
     <button class="nav-link-custom" onclick="showPage('sistema')">
-      <span class="nav-icon"><i class="bi bi-activity"></i></span> System Status
+      <span class="nav-icon"><i class="bi bi-activity"></i></span> Estado del Sistema
     </button>
   </div>
 
@@ -731,7 +740,7 @@
     <div class="page" id="page-monitor">
       <div class="page-header d-flex align-items-start justify-content-between">
         <div>
-          <h1>Live Monitor</h1>
+          <h1>Monitor en Vivo</h1>
           <p>Capturas del ESP32-CAM en tiempo real · Actualización automática</p>
         </div>
         <div class="d-flex gap-2 mt-1">
@@ -820,8 +829,8 @@
     <div class="page" id="page-personas">
       <div class="page-header d-flex align-items-start justify-content-between">
         <div>
-          <h1>People Management</h1>
-          <p>Monitor authorized personnel and manage identity classification across all security nodes</p>
+          <h1>Personas Autorizadas</h1>
+          <p>Monitorea el personal autorizado y gestiona la clasificación de identidades en todos los nodos</p>
         </div>
         <button class="btn btn-accent px-3 mt-1" style="font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#modalPersona">
           <i class="bi bi-person-plus me-2"></i>Agregar Persona
@@ -913,7 +922,7 @@
     <div class="page" id="page-imagenes">
       <div class="page-header d-flex align-items-start justify-content-between">
         <div>
-          <h1>Image Database</h1>
+          <h1>Base de Imágenes</h1>
           <p>Gestión de imágenes de entrenamiento para reconocimiento facial con DeepFace</p>
         </div>
         <button class="btn btn-accent px-3 mt-1" style="font-size:.82rem;"><i class="bi bi-cloud-upload me-2"></i>Subir Fotos</button>
@@ -1072,7 +1081,7 @@
     <div class="page" id="page-historial">
       <div class="page-header d-flex align-items-start justify-content-between">
         <div>
-          <h1>Access History</h1>
+          <h1>Historial de Accesos</h1>
           <p>52 registros en total · Todos los eventos biométricos registrados</p>
         </div>
         <button class="btn btn-sm mt-1" style="background:var(--bg-card);border:1px solid var(--border-color);color:#94a3b8;border-radius:8px;font-size:.8rem;padding:8px 16px;"><i class="bi bi-download me-2"></i>Exportar CSV</button>
@@ -1358,7 +1367,7 @@
     <!-- ══════ PAGE: CONFIGURACIÓN ESP32 ══════ -->
     <div class="page" id="page-configuracion">
       <div class="page-header">
-        <h1>System Configuration</h1>
+        <h1>Configuración ESP32</h1>
         <p>Parámetros del ESP32-CAM, umbrales de reconocimiento y conexión de red</p>
       </div>
       <div class="row g-3">
