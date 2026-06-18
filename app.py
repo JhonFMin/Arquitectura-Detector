@@ -10,7 +10,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from database import get_config, get_db, init_db, set_config, sync_personas_from_folders
@@ -197,6 +197,41 @@ def esp32_request(path: str):
         return {"ok": True, "ip": ip, "data": response.json()}
     except Exception as exc:
         return {"ok": False, "ip": ip, "error": str(exc)}
+
+
+def esp32_command(path: str):
+    ip = get_config_value("esp32_ip", "192.168.0.50")
+    try:
+        response = requests.get(f"http://{ip}{path}", auth=get_esp32_auth(), timeout=ESP32_TIMEOUT)
+        response.raise_for_status()
+        try:
+            data = response.json()
+        except ValueError:
+            data = {"text": response.text}
+        return {"ok": True, "ip": ip, "data": data}
+    except Exception as exc:
+        return {"ok": False, "ip": ip, "error": str(exc)}
+
+
+def esp32_stream_response():
+    ip = get_config_value("esp32_ip", "192.168.0.50")
+    url = f"http://{ip}:81/stream"
+    try:
+        upstream = requests.get(url, auth=get_esp32_auth(), stream=True, timeout=(3, None))
+        upstream.raise_for_status()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"No se pudo abrir el stream del ESP32-CAM en {ip}: {exc}") from exc
+
+    def iter_stream():
+        try:
+            for chunk in upstream.iter_content(chunk_size=4096):
+                if chunk:
+                    yield chunk
+        finally:
+            upstream.close()
+
+    media_type = upstream.headers.get("content-type", "multipart/x-mixed-replace; boundary=frame")
+    return StreamingResponse(iter_stream(), media_type=media_type)
 
 
 NOTIFICATION_KEYS = [
@@ -406,6 +441,17 @@ def api_esp32_status():
     return esp32_request("/status")
 
 
+@app.get("/api/esp32/stream")
+def api_esp32_stream():
+    return esp32_stream_response()
+
+
+@app.get("/api/esp32/capture")
+def api_esp32_capture(quality: int = 10, size: str = "vga"):
+    image_bytes = capture_from_esp32(quality, size)
+    return Response(content=image_bytes, media_type="image/jpeg")
+
+
 @app.post("/api/esp32/relay/manual-on")
 def api_esp32_manual_relay_on(ms: int = 5000):
     ms = max(1000, min(int(ms), 15000))
@@ -423,6 +469,31 @@ def api_esp32_manual_relay_on(ms: int = 5000):
 @app.post("/api/esp32/relay/manual-off")
 def api_esp32_manual_relay_off():
     return esp32_request("/access/close")
+
+
+@app.post("/api/esp32/flash/on")
+def api_esp32_flash_on():
+    return esp32_command("/flash/on")
+
+
+@app.post("/api/esp32/flash/off")
+def api_esp32_flash_off():
+    return esp32_command("/flash/off")
+
+
+@app.post("/api/esp32/pir/arm")
+def api_esp32_pir_arm():
+    return esp32_command("/pir/arm")
+
+
+@app.post("/api/esp32/pir/disarm")
+def api_esp32_pir_disarm():
+    return esp32_command("/pir/disarm")
+
+
+@app.post("/api/esp32/verify/ack")
+def api_esp32_verify_ack():
+    return esp32_command("/verify/ack")
 
 
 @app.get("/api/notificaciones/config")

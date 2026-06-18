@@ -57,7 +57,8 @@ BURST_COUNT = 10               # frames por evento (recomendado: 8–12)
 | `BURST_COUNT` | Frames capturados por evento | `10` |
 | `BURST_DELAY` | Segundos entre frames | `0.30` |
 | `MODEL_NAME` | Modelo DeepFace | `ArcFace` |
-| `DETECTOR_BACKEND` | Detector de caras | `opencv` |
+| `DETECTOR_BACKEND` | Detector de caras principal | `yunet` |
+| `FALLBACK_DETECTOR_BACKEND` | Detector de respaldo si falla el principal | `opencv` |
 | `MAX_DISTANCE` | Umbral máximo de distancia coseno | `0.52` |
 | `MIN_BLUR` | Varianza Laplaciana mínima | `60.0` |
 | `MIN_BRIGHTNESS` | Brillo promedio mínimo (0–255) | `40.0` |
@@ -137,11 +138,22 @@ No escanea toda la red automaticamente: si tu ESP32 imprime otra IP en el
 monitor serial, actualiza `esp32_ip` en la configuracion del dashboard o en la
 base SQLite.
 
+La pagina **Monitor en Vivo** muestra el stream real de la ESP32-CAM usando el
+proxy del backend (`/api/esp32/stream`) para reutilizar las credenciales
+`admi1 / 123456789`. Desde esa vista tambien puedes tomar una captura, abrir o
+cerrar el relay, encender o apagar el flash, armar o desarmar el PIR y
+reconectar el stream.
+
 ### Motor de reconocimiento
 
 ```bash
 python main.py
 ```
+
+Para camaras ESP32-CAM con baja calidad se usa `yunet` como detector principal
+por ser mas rapido y estable en rostros pequeños o imagen comprimida. Si YuNet
+no esta disponible en la instalacion, el sistema vuelve automaticamente a
+`opencv`.
 
 Salida esperada al arrancar:
 
@@ -151,7 +163,7 @@ Salida esperada al arrancar:
 =======================================================
  ESP32 IP   : 192.168.0.50
  Base datos : /ruta/base_datos
- Modelo     : ArcFace | Detector: opencv
+ Modelo     : ArcFace | Detector: yunet (fallback: opencv)
  Frames/evento: 10 | Max dist: 0.52
 =======================================================
 [INIT] Cargando embeddings de la base de datos...

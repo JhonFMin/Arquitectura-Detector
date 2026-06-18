@@ -54,7 +54,8 @@ ERROR_RETRY_DELAY = 0.7
 
 # Modelo
 MODEL_NAME        = "ArcFace"
-DETECTOR_BACKEND  = "opencv"
+DETECTOR_BACKEND  = os.getenv("DETECTOR_BACKEND", "yunet")
+FALLBACK_DETECTOR_BACKEND = os.getenv("FALLBACK_DETECTOR_BACKEND", "opencv")
 DISTANCE_METRIC   = "cosine"
 
 # Umbrales de calidad de frame (permisivos para ESP32-CAM)
@@ -155,20 +156,25 @@ def get_embedding(source):
         if cached and cached.get("hash") == current_hash:
             return cached["embedding"]
 
-    try:
-        result = DeepFace.represent(
-            img_path=_deepface_input(source),
-            model_name=MODEL_NAME,
-            detector_backend=DETECTOR_BACKEND,
-            enforce_detection=False,
-        )
-        if result and len(result) > 0:
-            emb = result[0]["embedding"]
-            if cache_key:
-                embeddings_cache[cache_key] = {"embedding": emb, "hash": current_hash}
-            return emb
-    except Exception as e:
-        print(f"[EMBEDDING ERROR] {_source_label(source)}: {e}")
+    backends = [DETECTOR_BACKEND]
+    if FALLBACK_DETECTOR_BACKEND and FALLBACK_DETECTOR_BACKEND not in backends:
+        backends.append(FALLBACK_DETECTOR_BACKEND)
+
+    for backend in backends:
+        try:
+            result = DeepFace.represent(
+                img_path=_deepface_input(source),
+                model_name=MODEL_NAME,
+                detector_backend=backend,
+                enforce_detection=False,
+            )
+            if result and len(result) > 0:
+                emb = result[0]["embedding"]
+                if cache_key:
+                    embeddings_cache[cache_key] = {"embedding": emb, "hash": current_hash}
+                return emb
+        except Exception as e:
+            print(f"[EMBEDDING ERROR] {_source_label(source)} backend={backend}: {e}")
     return None
 
 
@@ -599,7 +605,7 @@ def main():
     print("=" * 55)
     print(f" ESP32 IP      : {ESP32_IP}")
     print(f" Base de datos : {DB_PATH.resolve()}")
-    print(f" Modelo        : {MODEL_NAME} | Detector: {DETECTOR_BACKEND}")
+    print(f" Modelo        : {MODEL_NAME} | Detector: {DETECTOR_BACKEND} (fallback: {FALLBACK_DETECTOR_BACKEND})")
     print(f" Captura       : {CAPTURE_SIZE} quality={CAPTURE_QUALITY} fast=1")
     print(f" Frames max    : {BURST_COUNT} | Early grant: {EARLY_GRANT}")
     print(f" Max dist      : {MAX_DISTANCE}")

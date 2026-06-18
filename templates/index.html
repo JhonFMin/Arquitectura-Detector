@@ -353,6 +353,35 @@
     .live-info { padding: 10px 12px; }
     .live-info .name { font-weight: 600; font-size: .83rem; color: #fff; }
     .live-info .time { font-size: .7rem; color: var(--text-muted); }
+    .monitor-stream {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      background: #050914;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .monitor-stream img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .monitor-stream-offline {
+      color: var(--text-muted);
+      font-size: .86rem;
+      text-align: center;
+      padding: 20px;
+    }
+    .monitor-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+    }
 
     /* ── PERSONA CARD ── */
     .person-card {
@@ -744,83 +773,68 @@
           <p>Capturas del ESP32-CAM en tiempo real · Actualización automática</p>
         </div>
         <div class="d-flex gap-2 mt-1">
-          <span style="font-size:.75rem;color:var(--accent);display:flex;align-items:center;gap:6px;background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.2);border-radius:8px;padding:6px 14px;font-weight:700;letter-spacing:.05em;"><span class="status-dot dot-green"></span>EN VIVO</span>
-          <button class="btn btn-accent px-3" style="font-size:.82rem;">Forzar Captura</button>
+          <span id="monitorLiveBadge" style="font-size:.75rem;color:var(--accent);display:flex;align-items:center;gap:6px;background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.2);border-radius:8px;padding:6px 14px;font-weight:700;letter-spacing:.05em;"><span class="status-dot dot-green"></span>EN VIVO</span>
+          <button class="btn btn-accent px-3" style="font-size:.82rem;" onclick="forceMonitorCapture()"><i class="bi bi-camera me-1"></i>Forzar Captura</button>
         </div>
       </div>
 
-      <!-- Live feed grid -->
-      <div class="live-grid mb-4">
-        <!-- Frame persona conocida -->
-        <div class="live-card">
-          <div class="live-thumb" style="color:var(--accent);font-size:2.5rem;">
-            <i class="bi bi-person-bounding-box"></i>
-            <div class="live-stamp">14:32:07</div>
-            <div style="position:absolute;bottom:8px;left:8px;"><span class="badge-permit">PERMITIDO</span></div>
-          </div>
-          <div class="live-info">
-            <div class="name">Persona real</div>
-            <div class="time">Score: 0.84 · 4/5 frames · dist: 0.41</div>
-            <button class="btn btn-sm mt-2 w-100" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.72rem;" onclick="showPage('historial')"><i class="bi bi-journal-text me-1"></i>Ver historial</button>
+      <div class="row g-3 mb-4">
+        <div class="col-xl-8">
+          <div class="card-custom">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h6 class="mb-0 fw-semibold text-white">Vista en tiempo real</h6>
+              <span id="monitorStatusText" style="font-size:.76rem;color:#6e7681;">Conectando...</span>
+            </div>
+            <div class="monitor-stream">
+              <img id="monitorStream" src="/api/esp32/stream" alt="Stream ESP32-CAM" onerror="handleMonitorStreamError()">
+              <div id="monitorOffline" class="monitor-stream-offline" style="display:none;">
+                <i class="bi bi-camera-video-off" style="font-size:2rem;display:block;margin-bottom:8px;"></i>
+                No se pudo cargar el stream. Revisa IP, firmware y credenciales.
+              </div>
+            </div>
+            <div id="monitorActionStatus" style="font-size:.75rem;color:#6e7681;margin-top:10px;">Listo.</div>
           </div>
         </div>
-        <!-- Frame persona DESCONOCIDA — con botón registrar desde frame -->
-        <div class="live-card" style="border-color:rgba(255,76,106,.35);">
-          <div class="live-thumb" style="color:var(--accent-red);">
-            <i class="bi bi-person-fill-slash"></i>
-            <div class="live-stamp">14:28:51</div>
-            <div style="position:absolute;bottom:8px;left:8px;"><span class="badge-deny">DENEGADO</span></div>
-            <div style="position:absolute;top:8px;left:8px;background:rgba(255,76,106,.2);color:var(--accent-red);font-size:.65rem;padding:2px 7px;border-radius:4px;font-weight:700;">DESCONOCIDO</div>
+        <div class="col-xl-4">
+          <div class="card-custom mb-3">
+            <h6 class="fw-semibold text-white mb-3">Controles ESP32</h6>
+            <div class="monitor-actions">
+              <button class="btn btn-accent" onclick="forceMonitorCapture()"><i class="bi bi-camera me-1"></i>Captura</button>
+              <button class="btn btn-accent" onclick="sendEsp32Action('/api/esp32/relay/manual-on?ms=5000', 'POST', 'Relay abierto')"><i class="bi bi-unlock me-1"></i>Abrir</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="sendEsp32Action('/api/esp32/relay/manual-off', 'POST', 'Relay cerrado')"><i class="bi bi-lock me-1"></i>Cerrar</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="sendEsp32Action('/api/esp32/flash/on', 'POST', 'Flash encendido')"><i class="bi bi-lightning-charge me-1"></i>Flash ON</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="sendEsp32Action('/api/esp32/flash/off', 'POST', 'Flash apagado')"><i class="bi bi-lightning me-1"></i>Flash OFF</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="sendEsp32Action('/api/esp32/pir/arm', 'POST', 'PIR armado')"><i class="bi bi-broadcast me-1"></i>PIR ON</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="sendEsp32Action('/api/esp32/pir/disarm', 'POST', 'PIR desarmado')"><i class="bi bi-broadcast-pin me-1"></i>PIR OFF</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="restartMonitorStream()"><i class="bi bi-arrow-clockwise me-1"></i>Reconectar</button>
+            </div>
           </div>
-          <div class="live-info">
-            <div class="name" style="color:#8b949e;">Desconocido</div>
-            <div class="time">Score: 0.21 · 2/5 frames · sin match</div>
-            <div class="d-flex gap-1 mt-2">
-              <button class="btn btn-sm flex-fill btn-accent" style="font-size:.72rem;" data-bs-toggle="modal" data-bs-target="#modalRegistrarFrame" onclick="setFrameData('14:28:51','2/5')">
-                <i class="bi bi-person-plus me-1"></i>Registrar
-              </button>
-              <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.12);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;font-size:.72rem;">
-                Descartar
-              </button>
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Estado de cámara</h6>
+            <div class="d-flex flex-column gap-2" style="font-size:.82rem;">
+              <div class="d-flex justify-content-between"><span>IP</span><strong id="monitorIp" class="text-white">-</strong></div>
+              <div class="d-flex justify-content-between"><span>PIR</span><strong id="monitorPir" class="text-white">-</strong></div>
+              <div class="d-flex justify-content-between"><span>Relay</span><strong id="monitorRelay" class="text-white">-</strong></div>
+              <div class="d-flex justify-content-between"><span>Flash</span><strong id="monitorFlash" class="text-white">-</strong></div>
+              <div class="d-flex justify-content-between"><span>Solicitud</span><strong id="monitorVerify" class="text-white">-</strong></div>
+              <div class="d-flex justify-content-between"><span>Capturas</span><strong id="monitorCaptures" class="text-white">-</strong></div>
             </div>
           </div>
         </div>
-        <!-- Frame persona conocida -->
-        <div class="live-card">
-          <div class="live-thumb" style="color:#6f42c1;">
-            <i class="bi bi-person-bounding-box"></i>
-            <div class="live-stamp">14:15:33</div>
-            <div style="position:absolute;bottom:8px;left:8px;"><span class="badge-permit">PERMITIDO</span></div>
-          </div>
-          <div class="live-info">
-            <div class="name">Persona real</div>
-            <div class="time">Score: 0.91 · 5/5 frames · dist: 0.32</div>
-            <button class="btn btn-sm mt-2 w-100" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.72rem;" onclick="showPage('historial')"><i class="bi bi-journal-text me-1"></i>Ver historial</button>
-          </div>
-        </div>
-        <!-- Esperando -->
-        <div class="live-card">
-          <div class="live-thumb">
-            <i class="bi bi-camera-video-off"></i>
-            <div class="live-stamp">—</div>
-          </div>
-          <div class="live-info"><div class="name" style="color:#6e7681;">Esperando evento...</div><div class="time">Sin actividad</div></div>
-        </div>
       </div>
 
-      <!-- Stats row -->
       <div class="row g-3">
         <div class="col-md-4"><div class="card-custom text-center">
-          <div style="font-size:2rem;font-weight:700;color:var(--accent);">312ms</div>
-          <div style="font-size:.78rem;color:#6e7681;">Tiempo promedio de verificación</div>
+          <div id="monitorFrames" style="font-size:2rem;font-weight:700;color:var(--accent);">-</div>
+          <div style="font-size:.78rem;color:#6e7681;">Frames transmitidos</div>
         </div></div>
         <div class="col-md-4"><div class="card-custom text-center">
-          <div style="font-size:2rem;font-weight:700;color:#00b4ff;">3.8</div>
-          <div style="font-size:.78rem;color:#6e7681;">Frames válidos promedio (de 5)</div>
+          <div id="monitorRequestId" style="font-size:2rem;font-weight:700;color:#00b4ff;">-</div>
+          <div style="font-size:.78rem;color:#6e7681;">Request ID</div>
         </div></div>
         <div class="col-md-4"><div class="card-custom text-center">
-          <div style="font-size:2rem;font-weight:700;color:var(--accent-yellow);">89.4%</div>
-          <div style="font-size:.78rem;color:#6e7681;">Tasa de reconocimiento exitoso</div>
+          <div id="monitorFirmware" style="font-size:1.05rem;font-weight:700;color:var(--accent-yellow);padding-top:8px;">-</div>
+          <div style="font-size:.78rem;color:#6e7681;">Firmware</div>
         </div></div>
       </div>
     </div>
@@ -2181,17 +2195,104 @@ function renderHorariosPersonas(items) {
 }
 
 function removeMockPeopleText(data) {
-  const liveNames = document.querySelectorAll('#page-monitor .live-info .name');
-  liveNames.forEach((el, index) => {
-    const access = data.recent_accesses?.[index];
-    el.textContent = access?.nombre_completo || 'Sin evento real';
-  });
-
   document.querySelectorAll('#page-puertas span').forEach(span => {
     if (span.textContent.includes('Persona real')) {
       span.textContent = 'Sin accesos registrados';
     }
   });
+}
+
+function setMonitorActionStatus(message, tone = 'muted') {
+  const el = document.getElementById('monitorActionStatus');
+  if (!el) return;
+  const colors = { ok: 'var(--accent)', error: 'var(--accent-red)', warn: 'var(--accent-yellow)', muted: '#6e7681' };
+  el.style.color = colors[tone] || colors.muted;
+  el.textContent = message;
+}
+
+function setMonitorOnline(isOnline, message) {
+  const badge = document.getElementById('monitorLiveBadge');
+  const status = document.getElementById('monitorStatusText');
+  if (badge) {
+    badge.style.color = isOnline ? 'var(--accent)' : 'var(--accent-red)';
+    badge.style.borderColor = isOnline ? 'rgba(0,255,136,.2)' : 'rgba(255,68,102,.3)';
+    badge.innerHTML = `<span class="status-dot ${isOnline ? 'dot-green' : 'dot-red'}"></span>${isOnline ? 'EN VIVO' : 'SIN SEÑAL'}`;
+  }
+  if (status) status.textContent = message || (isOnline ? 'Stream activo' : 'Sin respuesta');
+}
+
+function restartMonitorStream() {
+  const img = document.getElementById('monitorStream');
+  const offline = document.getElementById('monitorOffline');
+  if (!img) return;
+  if (offline) offline.style.display = 'none';
+  img.style.display = 'block';
+  img.src = `/api/esp32/stream?t=${Date.now()}`;
+  setMonitorActionStatus('Reconectando stream...', 'warn');
+}
+
+function handleMonitorStreamError() {
+  const img = document.getElementById('monitorStream');
+  const offline = document.getElementById('monitorOffline');
+  if (img) img.style.display = 'none';
+  if (offline) offline.style.display = 'block';
+  setMonitorOnline(false, 'Stream no disponible');
+}
+
+async function refreshMonitorStatus() {
+  try {
+    const response = await fetch('/api/esp32/status', { cache: 'no-store' });
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.error || 'ESP32-CAM sin respuesta');
+    const s = result.data || {};
+    document.getElementById('monitorIp').textContent = result.ip || s.ip || '-';
+    document.getElementById('monitorPir').textContent = s.pir ?? '-';
+    document.getElementById('monitorRelay').textContent = s.relayOn ? 'ON' : 'OFF';
+    document.getElementById('monitorFlash').textContent = s.flashOn ? 'ON' : 'OFF';
+    document.getElementById('monitorVerify').textContent = s.verificationRequested ? 'Pendiente' : 'Sin solicitud';
+    document.getElementById('monitorCaptures').textContent = s.capturesServed ?? '-';
+    document.getElementById('monitorFrames').textContent = s.framesStreamed ?? '-';
+    document.getElementById('monitorRequestId').textContent = s.verificationRequestId ?? '-';
+    document.getElementById('monitorFirmware').textContent = s.firmwareVersion || 'Sin version';
+    setMonitorOnline(true, 'ESP32-CAM conectado');
+  } catch (error) {
+    setMonitorOnline(false, error.message || 'ESP32-CAM sin respuesta');
+  }
+}
+
+async function sendEsp32Action(url, method = 'POST', successMessage = 'Comando ejecutado') {
+  setMonitorActionStatus('Enviando comando...', 'warn');
+  try {
+    const response = await fetch(url, { method });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.error || 'ESP32-CAM sin respuesta');
+    setMonitorActionStatus(successMessage, 'ok');
+    await refreshMonitorStatus();
+    await loadDashboardData();
+  } catch (error) {
+    setMonitorActionStatus(error.message || 'No se pudo ejecutar el comando', 'error');
+  }
+}
+
+async function forceMonitorCapture() {
+  setMonitorActionStatus('Tomando captura...', 'warn');
+  try {
+    const response = await fetch(`/api/esp32/capture?quality=10&size=vga&t=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('No se pudo capturar desde el ESP32-CAM');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setMonitorActionStatus('Captura abierta en una pestaña nueva.', 'ok');
+    await refreshMonitorStatus();
+  } catch (error) {
+    setMonitorActionStatus(error.message || 'No se pudo tomar captura', 'error');
+  }
+}
+
+function setupLiveMonitor() {
+  if (window.monitorStatusTimer) return;
+  refreshMonitorStatus();
+  window.monitorStatusTimer = setInterval(refreshMonitorStatus, 2000);
 }
 
 function setupNotificationsPanel() {
@@ -2597,6 +2698,7 @@ window.addEventListener('load', () => {
   setupPersonaCaptureModal();
   setupNotificationsPanel();
   setupManualRelayButtons();
+  setupLiveMonitor();
   setTimeout(loadDashboardData, 150);
   document.querySelectorAll('button').forEach(button => {
     if (button.textContent.includes('Actualizar')) {
