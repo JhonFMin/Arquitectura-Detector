@@ -118,6 +118,27 @@ python db_tools.py tune --image ruta/a/imagen.jpg
 
 ## Ejecución
 
+### Dashboard web
+
+Para abrir la interfaz web ejecuta un solo archivo:
+
+```bash
+python app.py
+```
+
+Luego abre:
+
+```text
+http://127.0.0.1:5000
+```
+
+El dashboard usa la IP configurada del ESP32-CAM (`192.168.0.50` por defecto).
+No escanea toda la red automaticamente: si tu ESP32 imprime otra IP en el
+monitor serial, actualiza `esp32_ip` en la configuracion del dashboard o en la
+base SQLite.
+
+### Motor de reconocimiento
+
 ```bash
 python main.py
 ```
@@ -326,11 +347,12 @@ El panel web permite agregar administradores, eliminar administradores y cambiar
 contraseñas. No se puede eliminar el ultimo administrador.
 
 Si cambias la contraseña del administrador que usa el backend Python, inicia
-`main.py` con las mismas credenciales:
+`app.py` y `main.py` con las mismas credenciales:
 
 ```powershell
 $env:ESP32_AUTH_USER="admi1"
 $env:ESP32_AUTH_PASS="nueva-contraseña"
+python app.py
 python main.py
 ```
 

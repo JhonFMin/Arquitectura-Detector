@@ -110,6 +110,8 @@ def init_db():
         );
 
         INSERT OR IGNORE INTO configuracion VALUES ('esp32_ip', '192.168.0.50', 'IP del ESP32-CAM');
+        INSERT OR IGNORE INTO configuracion VALUES ('esp32_auth_user', 'admi1', 'Usuario administrador del ESP32-CAM');
+        INSERT OR IGNORE INTO configuracion VALUES ('esp32_auth_pass', '123456789', 'Password administrador del ESP32-CAM');
         INSERT OR IGNORE INTO configuracion VALUES ('burst_count', '5', 'Frames por captura');
         INSERT OR IGNORE INTO configuracion VALUES ('max_distance', '0.68', 'Umbral de distancia coseno');
         INSERT OR IGNORE INTO configuracion VALUES ('capture_quality', '10', 'Calidad JPEG (1-63, menor=mejor)');

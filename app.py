@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import os
 from pathlib import Path
 import re
 import threading
@@ -6,6 +7,7 @@ import time
 from typing import Dict
 
 import requests
+from requests.auth import HTTPBasicAuth
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
@@ -21,9 +23,13 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 CAMERA_MONITOR_STARTED = False
 CAMERA_LAST_OK = None
 
+Path("static").mkdir(parents=True, exist_ok=True)
+Path("static/uploads").mkdir(parents=True, exist_ok=True)
+Path("static/captures").mkdir(parents=True, exist_ok=True)
+BASE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
-if Path("base_datos").exists():
-    app.mount("/base_datos", StaticFiles(directory="base_datos"), name="base_datos")
+app.mount("/base_datos", StaticFiles(directory="base_datos"), name="base_datos")
 
 
 class PersonCaptureRequest(BaseModel):
@@ -159,7 +165,7 @@ def capture_from_esp32(quality: int, size: str) -> bytes:
     size = size if size in {"qvga", "vga", "svga", "xga"} else "vga"
     url = f"http://{ip}/capture?quality={quality}&size={size}&fast=1"
     try:
-        response = requests.get(url, timeout=6)
+        response = requests.get(url, auth=get_esp32_auth(), timeout=6)
         response.raise_for_status()
     except Exception as exc:
         raise HTTPException(
@@ -177,10 +183,16 @@ def get_config_value(clave: str, default: str) -> str:
     return row.get("valor") or default
 
 
+def get_esp32_auth() -> HTTPBasicAuth:
+    user = os.getenv("ESP32_AUTH_USER") or get_config_value("esp32_auth_user", "admi1")
+    password = os.getenv("ESP32_AUTH_PASS") or get_config_value("esp32_auth_pass", "123456789")
+    return HTTPBasicAuth(user, password)
+
+
 def esp32_request(path: str):
     ip = get_config_value("esp32_ip", "192.168.0.50")
     try:
-        response = requests.get(f"http://{ip}{path}", timeout=ESP32_TIMEOUT)
+        response = requests.get(f"http://{ip}{path}", auth=get_esp32_auth(), timeout=ESP32_TIMEOUT)
         response.raise_for_status()
         return {"ok": True, "ip": ip, "data": response.json()}
     except Exception as exc:
