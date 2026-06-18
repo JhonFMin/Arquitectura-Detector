@@ -469,8 +469,6 @@ void handleVersion() {
 
 // ================= STATUS =================
 void handleStatus() {
-  if (!requireAuth()) return;
-
   sensor_t* s = esp_camera_sensor_get();
 
   String json = "{";
@@ -794,8 +792,6 @@ void handleAdminDelete() {
 
 // ================= CAPTURE =================
 void handleCapture() {
-  if (!requireAuth()) return;
-
   int quality = CAPTURE_QUALITY;
   if (controlServer.hasArg("quality")) {
     quality = constrain(controlServer.arg("quality").toInt(), 4, 40);
@@ -1355,8 +1351,6 @@ setInterval(refreshEmbeddedView, 900);
 
 // ================= STREAM =================
 void handleStream() {
-  if (!requireAuth(streamServer)) return;
-
   WiFiClient client = streamServer.client();
   client.setNoDelay(true);
 

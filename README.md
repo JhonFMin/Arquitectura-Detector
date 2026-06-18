@@ -348,7 +348,17 @@ Si la versión no aparece, el ESP32-CAM todavía no tiene cargados los cambios d
 
 ## Acceso local con administradores
 
-El panel, el stream y los endpoints sensibles del ESP32 usan HTTP Basic Auth.
+El panel web del ESP32 y los endpoints sensibles usan HTTP Basic Auth. Las rutas
+de solo lectura que necesita el dashboard para previsualizar y capturar imagenes
+quedan sin login para evitar bloqueos del navegador:
+
+- `GET /version`
+- `GET /status`
+- `GET /capture`
+- `GET :81/stream`
+
+Los controles de relay, flash, PIR, apertura de acceso, verificacion y
+administradores siguen protegidos con usuario y contrasena.
 El administrador inicial se crea automaticamente al flashear el firmware:
 
 | Usuario | Contraseña |
