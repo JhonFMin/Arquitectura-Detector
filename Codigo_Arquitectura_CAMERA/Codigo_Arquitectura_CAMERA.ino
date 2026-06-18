@@ -61,6 +61,12 @@ const char* DEFAULT_AUTH_PASSWORD = "123456789";
 const char* AUTH_REALM            = "FaceGuard";
 const char* AUTH_NAMESPACE        = "auth";
 
+// Version que debe cargarse desde Arduino IDE al ESP32-CAM.
+// Permite confirmar desde /status o /version que la placa tiene este firmware.
+#define FIRMWARE_VERSION "faceguard-fastapi-sqlite-2026-06-17"
+#define FIRMWARE_API_VERSION "2"
+#define DASHBOARD_URL "http://127.0.0.1:5000/"
+
 // Variables ajustables desde web sin recompilar
 uint32_t frameIntervalMs          = FRAME_INTERVAL_MS; // intervalo entre frames del stream (50–2000 ms)
 int      flashMode                = 1;   // 0=apagado, 1=automático por brillo, 2=siempre encendido
@@ -440,6 +446,27 @@ String jsonEscape(String value) {
   return value;
 }
 
+String buildFirmwareInfoJSON() {
+  String json = "{";
+  json += "\"firmwareVersion\":\"" FIRMWARE_VERSION "\",";
+  json += "\"apiVersion\":\"" FIRMWARE_API_VERSION "\",";
+  json += "\"dashboardUrl\":\"" DASHBOARD_URL "\",";
+  json += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
+  json += "\"controlPort\":" + String(CONTROL_PORT) + ",";
+  json += "\"streamPort\":" + String(STREAM_PORT) + ",";
+  json += "\"captureUrl\":\"/capture?quality=10&size=vga&fast=1\",";
+  json += "\"statusUrl\":\"/status\",";
+  json += "\"openUrl\":\"/access/open?ms=5000\",";
+  json += "\"closeUrl\":\"/access/close\",";
+  json += "\"ackUrl\":\"/verify/ack\"";
+  json += "}";
+  return json;
+}
+
+void handleVersion() {
+  sendJSON(buildFirmwareInfoJSON());
+}
+
 // ================= STATUS =================
 void handleStatus() {
   if (!requireAuth()) return;
@@ -447,6 +474,9 @@ void handleStatus() {
   sensor_t* s = esp_camera_sensor_get();
 
   String json = "{";
+  json += "\"firmwareVersion\":\"" FIRMWARE_VERSION "\",";
+  json += "\"apiVersion\":\"" FIRMWARE_API_VERSION "\",";
+  json += "\"dashboardUrl\":\"" DASHBOARD_URL "\",";
   json += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
   json += "\"pir\":" + String(pirState) + ",";
   json += "\"pirArmed\":" + String(pirArmed ? "true" : "false") + ",";
@@ -1409,6 +1439,7 @@ void setup() {
   connectWiFi();
 
   controlServer.on("/", HTTP_GET, handleRoot);
+  controlServer.on("/version", HTTP_GET, handleVersion);
   controlServer.on("/status", HTTP_GET, handleStatus);
   controlServer.on("/capture", HTTP_GET, handleCapture);
   controlServer.on("/control", HTTP_GET, handleControl);
@@ -1437,6 +1468,11 @@ void setup() {
   xTaskCreatePinnedToCore(streamTask, "streamTask", 8192, nullptr, 1, nullptr, 0);
 
   Serial.println("Servidor listo.");
+  Serial.print("Firmware FaceGuard: ");
+  Serial.println(FIRMWARE_VERSION);
+  Serial.print("Verificar version: http://");
+  Serial.print(WiFi.localIP());
+  Serial.println("/version");
 }
 
 // ================= LOOP =================

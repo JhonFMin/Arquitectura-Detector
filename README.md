@@ -281,6 +281,36 @@ El archivo `.ino` está en `Codigo_Arquitectura_CAMERA/`.
 Flashear con Arduino IDE o PlatformIO.  
 La ESP32-CAM debe estar en la misma red local que el backend Python.
 
+### Cargar cambios desde Arduino IDE
+
+Cada vez que se edite el dashboard/backend y el flujo del ESP32 cambie, abre en Arduino IDE:
+
+```text
+Codigo_Arquitectura_CAMERA/Codigo_Arquitectura_CAMERA.ino
+```
+
+Luego selecciona la placa ESP32-CAM correcta, el puerto COM y pulsa **Subir**.
+
+La versión esperada de este firmware es:
+
+```text
+faceguard-fastapi-sqlite-2026-06-17
+```
+
+Después de subirlo, verifica en el navegador:
+
+```text
+http://192.168.0.50/version
+```
+
+O desde el dashboard/backend:
+
+```text
+http://127.0.0.1:5000/api/esp32/version
+```
+
+Si la versión no aparece, el ESP32-CAM todavía no tiene cargados los cambios del Arduino IDE.
+
 ---
 
 ## Acceso local con administradores

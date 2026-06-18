@@ -15,6 +15,19 @@ import requests
 from requests.auth import HTTPBasicAuth
 from deepface import DeepFace
 
+try:
+    from database import get_persona_by_nombre, init_db, log_acceso, log_desconocido
+except Exception:
+    get_persona_by_nombre = None
+    init_db = None
+    log_acceso = None
+    log_desconocido = None
+
+try:
+    from notifier import send_notification
+except Exception:
+    send_notification = None
+
 # ===================== SETTINGS =====================
 ESP32_IP          = "192.168.0.50"   # <-- cambia a la IP de tu ESP32-CAM
 ESP32_AUTH_USER   = os.getenv("ESP32_AUTH_USER", "admi1")
@@ -59,6 +72,7 @@ MIN_SCORE         = 0.20
 
 # ESP32 URLs
 STATUS_URL  = f"http://{ESP32_IP}/status"
+VERSION_URL = f"http://{ESP32_IP}/version"
 CAPTURE_URL = f"http://{ESP32_IP}/capture?quality={CAPTURE_QUALITY}&size={CAPTURE_SIZE}&fast=1"
 OPEN_URL    = f"http://{ESP32_IP}/access/open?ms=5000"
 CLOSE_URL   = f"http://{ESP32_IP}/access/close"
@@ -335,6 +349,15 @@ def get_status():
     return r.json()
 
 
+def get_firmware_version() -> dict:
+    try:
+        r = http.get(VERSION_URL, timeout=STATUS_TIMEOUT)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def capture_frame(frame_number: int) -> dict:
     started = time.perf_counter()
     r = http.get(CAPTURE_URL, timeout=CAPTURE_TIMEOUT)
@@ -568,6 +591,8 @@ def main():
 
     ensure_temp_dir()
     load_cache()
+    if init_db:
+        init_db()
 
     print("=" * 55)
     print(" Servidor DeepFace - Control de Acceso con ESP32-CAM")
@@ -578,6 +603,11 @@ def main():
     print(f" Captura       : {CAPTURE_SIZE} quality={CAPTURE_QUALITY} fast=1")
     print(f" Frames max    : {BURST_COUNT} | Early grant: {EARLY_GRANT}")
     print(f" Max dist      : {MAX_DISTANCE}")
+    firmware_info = get_firmware_version()
+    if firmware_info.get("error"):
+        print(f" Firmware ESP32: no verificado ({firmware_info['error']})")
+    else:
+        print(f" Firmware ESP32: {firmware_info.get('firmwareVersion', 'sin_version')}")
     print("=" * 55)
 
     print("\n[INIT] Leyendo fotos de base_datos/ ...")
@@ -623,11 +653,45 @@ def main():
                 }
                 print("\n[RESULTADO]", json.dumps(summary, ensure_ascii=False, indent=2))
 
+                if log_acceso:
+                    persona = (
+                        get_persona_by_nombre(result["winner"])
+                        if result["winner"] and get_persona_by_nombre
+                        else None
+                    )
+                    winner_score = result["scores"].get(result["winner"] or "", {})
+                    log_acceso(
+                        persona["id"] if persona else None,
+                        result["winner"],
+                        summary["decision"],
+                        winner_score.get("score_final"),
+                        winner_score.get("mejor_distancia"),
+                        result["n_valid"],
+                        len(result["frames"]),
+                        result["reason"],
+                    )
+                    if not result["granted"] and log_desconocido:
+                        log_desconocido(None)
+
                 if result["granted"]:
                     print(f"\n[ACCESO] PERMITIDO - {result['reason']}")
+                    if send_notification:
+                        send_notification(
+                            "access_granted",
+                            "Acceso concedido",
+                            f"Se concedio acceso a {result['winner']}. {result['reason']}",
+                            summary,
+                        )
                     open_relay()
                 else:
                     print(f"\n[ACCESO] DENEGADO  - {result['reason']}")
+                    if send_notification:
+                        send_notification(
+                            "unknown_attempt",
+                            "Intento de acceso desconocido",
+                            f"Acceso denegado. Motivo: {result['reason']}",
+                            summary,
+                        )
                     close_relay()
 
                 ack_verify()
