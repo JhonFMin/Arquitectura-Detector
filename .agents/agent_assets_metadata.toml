@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "ZsYK-mdw9cS--fyar7Sq6"
+uri = "file://faceguard_dashboard.zip"
+type = "unspecified"
+title = "FaceGuard Dashboard — Código fuente"
