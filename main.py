@@ -12,12 +12,13 @@ from pathlib import Path
 import cv2
 import numpy as np
 import requests
+from requests.auth import HTTPBasicAuth
 from deepface import DeepFace
 
 # ===================== SETTINGS =====================
 ESP32_IP          = "192.168.0.50"   # <-- cambia a la IP de tu ESP32-CAM
-AUTH_HEADER_NAME  = "X-Access-Token"
-ESP32_AUTH_TOKEN  = os.getenv("ESP32_AUTH_TOKEN", "CAMBIA_ESTE_TOKEN_LOCAL")
+ESP32_AUTH_USER   = os.getenv("ESP32_AUTH_USER", "admi1")
+ESP32_AUTH_PASS   = os.getenv("ESP32_AUTH_PASS", "123456789")
 
 # Rutas
 DB_PATH           = Path("base_datos")
@@ -67,10 +68,8 @@ ACK_URL     = f"http://{ESP32_IP}/verify/ack"
 last_request_id = -1
 embeddings_cache: dict = {}
 http = requests.Session()
-http.headers.update({
-    "Connection": "keep-alive",
-    AUTH_HEADER_NAME: ESP32_AUTH_TOKEN,
-})
+http.headers.update({"Connection": "keep-alive"})
+http.auth = HTTPBasicAuth(ESP32_AUTH_USER, ESP32_AUTH_PASS)
 
 FACE_CASCADE = cv2.CascadeClassifier(
     str(Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml")

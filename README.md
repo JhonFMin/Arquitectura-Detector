@@ -283,19 +283,26 @@ La ESP32-CAM debe estar en la misma red local que el backend Python.
 
 ---
 
-## Token HTTP local
+## Acceso local con administradores
 
-Los endpoints sensibles del ESP32 requieren el header `X-Access-Token`.
-Cambia `HTTP_AUTH_TOKEN` en `Codigo_Arquitectura_CAMERA/Codigo_Arquitectura_CAMERA.ino`
-y usa exactamente el mismo valor al iniciar el backend Python:
+El panel, el stream y los endpoints sensibles del ESP32 usan HTTP Basic Auth.
+El administrador inicial se crea automaticamente al flashear el firmware:
+
+| Usuario | Contraseña |
+|---|---|
+| `admi1` | `123456789` |
+
+El panel web permite agregar administradores, eliminar administradores y cambiar
+contraseñas. No se puede eliminar el ultimo administrador.
+
+Si cambias la contraseña del administrador que usa el backend Python, inicia
+`main.py` con las mismas credenciales:
 
 ```powershell
-$env:ESP32_AUTH_TOKEN="cambia-este-token-por-uno-largo-y-privado"
+$env:ESP32_AUTH_USER="admi1"
+$env:ESP32_AUTH_PASS="nueva-contraseña"
 python main.py
 ```
-
-El panel web tambien solicita ese token para poder consultar estado, capturar
-frames o ejecutar comandos sobre el relay.
 
 ---
 
