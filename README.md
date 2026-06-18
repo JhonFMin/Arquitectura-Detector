@@ -283,6 +283,22 @@ La ESP32-CAM debe estar en la misma red local que el backend Python.
 
 ---
 
+## Token HTTP local
+
+Los endpoints sensibles del ESP32 requieren el header `X-Access-Token`.
+Cambia `HTTP_AUTH_TOKEN` en `Codigo_Arquitectura_CAMERA/Codigo_Arquitectura_CAMERA.ino`
+y usa exactamente el mismo valor al iniciar el backend Python:
+
+```powershell
+$env:ESP32_AUTH_TOKEN="cambia-este-token-por-uno-largo-y-privado"
+python main.py
+```
+
+El panel web tambien solicita ese token para poder consultar estado, capturar
+frames o ejecutar comandos sobre el relay.
+
+---
+
 ## Licencia
 
 Proyecto personal. Uso libre para fines educativos y personales.

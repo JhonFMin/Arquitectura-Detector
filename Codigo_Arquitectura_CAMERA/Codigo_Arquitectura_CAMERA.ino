@@ -45,6 +45,7 @@ IPAddress secondaryDNS(1, 1, 1, 1);
 // ================= AJUSTES =================
 #define STREAM_PORT            81
 #define CONTROL_PORT           80
+#define AUTH_HEADER_NAME       "X-Access-Token"
 #define ACTIVE_HOLD_MS      30000UL
 #define PIR_VERIFY_DELAY_MS  1000UL
 #define ACCESS_OPEN_MS       5000UL
@@ -52,6 +53,11 @@ IPAddress secondaryDNS(1, 1, 1, 1);
 
 #define STREAM_QUALITY          10
 #define CAPTURE_QUALITY         10
+
+// Cambia este token y usa el mismo valor en ESP32_AUTH_TOKEN del backend.
+const char* HTTP_AUTH_TOKEN = "CAMBIA_ESTE_TOKEN_LOCAL";
+const char* AUTH_HEADER_KEYS[] = {AUTH_HEADER_NAME};
+const size_t AUTH_HEADER_KEYS_COUNT = sizeof(AUTH_HEADER_KEYS) / sizeof(AUTH_HEADER_KEYS[0]);
 
 // Variables ajustables desde web sin recompilar
 uint32_t frameIntervalMs          = FRAME_INTERVAL_MS; // intervalo entre frames del stream (50–2000 ms)
@@ -329,8 +335,21 @@ void sendJSON(String payload) {
   controlServer.send(200, "application/json", payload);
 }
 
+bool requireAuth() {
+  if (controlServer.header(AUTH_HEADER_NAME) == String(HTTP_AUTH_TOKEN)) {
+    return true;
+  }
+
+  controlServer.sendHeader("Access-Control-Allow-Origin", "*");
+  controlServer.sendHeader("Cache-Control", "no-store");
+  controlServer.send(401, "application/json", "{\"ok\":false,\"error\":\"unauthorized\"}");
+  return false;
+}
+
 // ================= STATUS =================
 void handleStatus() {
+  if (!requireAuth()) return;
+
   sensor_t* s = esp_camera_sensor_get();
 
   String json = "{";
@@ -389,6 +408,8 @@ void handleStatus() {
 
 // ================= CONTROL CAMARA =================
 void handleControl() {
+  if (!requireAuth()) return;
+
   if (!controlServer.hasArg("var") || !controlServer.hasArg("val")) {
     controlServer.send(400, "text/plain", "faltan var o val");
     return;
@@ -481,41 +502,55 @@ void handleControl() {
 
 // ================= HANDLERS SISTEMA =================
 void handleRelayOn() {
+  if (!requireAuth()) return;
+
   relayManualOn = true;
   applyOutputs();
   sendJSON("{\"ok\":true,\"relayManualOn\":true}");
 }
 
 void handleRelayOff() {
+  if (!requireAuth()) return;
+
   relayManualOn = false;
   if (!accessGranted) setRelay(false);
   sendJSON("{\"ok\":true,\"relayManualOn\":false}");
 }
 
 void handleFlashOn() {
+  if (!requireAuth()) return;
+
   flashManualOn = true;
   applyOutputs();
   sendJSON("{\"ok\":true,\"flashManualOn\":true}");
 }
 
 void handleFlashOff() {
+  if (!requireAuth()) return;
+
   flashManualOn = false;
   applyOutputs();
   sendJSON("{\"ok\":true,\"flashManualOn\":false}");
 }
 
 void handlePirArm() {
+  if (!requireAuth()) return;
+
   pirArmed = true;
   sendJSON("{\"ok\":true,\"pirArmed\":true}");
 }
 
 void handlePirDisarm() {
+  if (!requireAuth()) return;
+
   pirArmed = false;
   pirDelayRunning = false;
   sendJSON("{\"ok\":true,\"pirArmed\":false}");
 }
 
 void handleAccessOpen() {
+  if (!requireAuth()) return;
+
   unsigned long duration = ACCESS_OPEN_MS;
   if (controlServer.hasArg("ms")) {
     duration = constrain(controlServer.arg("ms").toInt(), 1000, 15000);
@@ -525,17 +560,23 @@ void handleAccessOpen() {
 }
 
 void handleAccessClose() {
+  if (!requireAuth()) return;
+
   closeAccessRelay();
   sendJSON("{\"ok\":true,\"relay\":\"CLOSED\"}");
 }
 
 void handleVerifyAck() {
+  if (!requireAuth()) return;
+
   verificationRequested = false;
   sendJSON("{\"ok\":true,\"verifyRequested\":false}");
 }
 
 // ================= CAPTURE =================
 void handleCapture() {
+  if (!requireAuth()) return;
+
   int quality = CAPTURE_QUALITY;
   if (controlServer.hasArg("quality")) {
     quality = constrain(controlServer.arg("quality").toInt(), 4, 40);
@@ -859,13 +900,42 @@ small{color:#94a3b8}
 <script>
 const host = location.hostname;
 document.getElementById("stream").src = "http://" + host + ":81/stream";
+const AUTH_HEADER_NAME = "X-Access-Token";
+const TOKEN_STORAGE_KEY = "faceguard_http_token";
+let authToken = localStorage.getItem(TOKEN_STORAGE_KEY) || "";
 
 function setMsg(text){ document.getElementById("msg").textContent = text; }
+
+function ensureToken(){
+  if(authToken) return true;
+  const token = prompt("Token HTTP del ESP32:");
+  if(!token){
+    setMsg("Token requerido");
+    return false;
+  }
+  authToken = token;
+  localStorage.setItem(TOKEN_STORAGE_KEY, token);
+  return true;
+}
+
+async function authedFetch(url, options = {}){
+  if(!ensureToken()) throw new Error("token requerido");
+  const headers = Object.assign({}, options.headers || {});
+  headers[AUTH_HEADER_NAME] = authToken;
+  const response = await fetch(url, Object.assign({}, options, {headers}));
+  if(response.status === 401){
+    authToken = "";
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    setMsg("Token invalido");
+  }
+  return response;
+}
 
 async function sendCmd(url){
   try{
     setMsg("Enviando: " + url);
-    await fetch(url, {method:"GET"});
+    const r = await authedFetch(url, {method:"GET"});
+    if(!r.ok) throw new Error("fallo");
     setMsg("Comando ejecutado: " + url);
     setTimeout(updateStatus, 200);
   }catch(e){
@@ -875,7 +945,16 @@ async function sendCmd(url){
 }
 
 function openCapture(){
-  window.open("/capture?quality=10&size=vga&fast=1", "_blank");
+  authedFetch("/capture?quality=10&size=vga&fast=1")
+    .then(r => {
+      if(!r.ok) throw new Error("fallo");
+      return r.blob();
+    })
+    .then(blob => window.open(URL.createObjectURL(blob), "_blank"))
+    .catch(e => {
+      console.error(e);
+      setMsg("Error abriendo captura");
+    });
 }
 
 function paintBool(id, value, trueText="SI", falseText="NO"){
@@ -893,7 +972,7 @@ function showVal(id){
 async function setCam(variable, value){
   try{
     setMsg("Aplicando " + variable + "=" + value);
-    const r = await fetch(`/control?var=${variable}&val=${value}`);
+    const r = await authedFetch(`/control?var=${variable}&val=${value}`);
     if(!r.ok) throw new Error("fallo");
     setMsg("Aplicado: " + variable + "=" + value);
     setTimeout(updateStatus, 150);
@@ -944,7 +1023,8 @@ function syncUI(s){
 
 async function updateStatus(){
   try{
-    const r = await fetch("/status");
+    const r = await authedFetch("/status");
+    if(!r.ok) throw new Error("fallo");
     const s = await r.json();
 
     document.getElementById("ip").textContent = s.ip;
@@ -1065,6 +1145,8 @@ void setup() {
   }
 
   connectWiFi();
+
+  controlServer.collectHeaders(AUTH_HEADER_KEYS, AUTH_HEADER_KEYS_COUNT);
 
   controlServer.on("/", HTTP_GET, handleRoot);
   controlServer.on("/status", HTTP_GET, handleStatus);

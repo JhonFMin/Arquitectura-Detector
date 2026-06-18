@@ -16,6 +16,8 @@ from deepface import DeepFace
 
 # ===================== SETTINGS =====================
 ESP32_IP          = "192.168.0.50"   # <-- cambia a la IP de tu ESP32-CAM
+AUTH_HEADER_NAME  = "X-Access-Token"
+ESP32_AUTH_TOKEN  = os.getenv("ESP32_AUTH_TOKEN", "CAMBIA_ESTE_TOKEN_LOCAL")
 
 # Rutas
 DB_PATH           = Path("base_datos")
@@ -65,7 +67,10 @@ ACK_URL     = f"http://{ESP32_IP}/verify/ack"
 last_request_id = -1
 embeddings_cache: dict = {}
 http = requests.Session()
-http.headers.update({"Connection": "keep-alive"})
+http.headers.update({
+    "Connection": "keep-alive",
+    AUTH_HEADER_NAME: ESP32_AUTH_TOKEN,
+})
 
 FACE_CASCADE = cv2.CascadeClassifier(
     str(Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml")
