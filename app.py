@@ -199,6 +199,28 @@ def esp32_request(path: str):
         return {"ok": False, "ip": ip, "error": str(exc)}
 
 
+def esp32_version_info():
+    result = esp32_request("/version")
+    if result.get("ok"):
+        return result
+
+    status = esp32_request("/status")
+    if status.get("ok"):
+        data = status.get("data") or {}
+        data.setdefault("firmwareVersion", "Firmware sin endpoint /version")
+        data.setdefault("apiVersion", "1")
+        data.setdefault("streamPort", 81)
+        data.setdefault("captureUrl", "/capture?quality=10&size=vga&fast=1")
+        return {
+            "ok": True,
+            "ip": status.get("ip"),
+            "data": data,
+            "warning": result.get("error"),
+        }
+
+    return result
+
+
 def esp32_command(path: str):
     ip = get_config_value("esp32_ip", "192.168.0.50")
     try:
@@ -433,7 +455,7 @@ def api_alertas():
 
 @app.get("/api/esp32/version")
 def api_esp32_version():
-    return esp32_request("/version")
+    return esp32_version_info()
 
 
 @app.get("/api/esp32/status")
@@ -449,7 +471,11 @@ def api_esp32_stream():
 @app.get("/api/esp32/capture")
 def api_esp32_capture(quality: int = 10, size: str = "vga"):
     image_bytes = capture_from_esp32(quality, size)
-    return Response(content=image_bytes, media_type="image/jpeg")
+    return Response(
+        content=image_bytes,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @app.post("/api/esp32/relay/manual-on")

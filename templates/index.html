@@ -786,7 +786,7 @@
               <span id="monitorStatusText" style="font-size:.76rem;color:#6e7681;">Conectando...</span>
             </div>
             <div class="monitor-stream">
-              <img id="monitorStream" src="/api/esp32/stream" alt="Stream ESP32-CAM" onload="handleMonitorFrameLoaded()" onerror="handleMonitorStreamError()">
+              <img id="monitorStream" src="" alt="Preview ESP32-CAM" onload="handleMonitorFrameLoaded()" onerror="handleMonitorStreamError()">
               <div id="monitorOffline" class="monitor-stream-offline" style="display:none;">
                 <i class="bi bi-camera-video-off" style="font-size:2rem;display:block;margin-bottom:8px;"></i>
                 No se pudo cargar el stream. Revisa IP, firmware y credenciales.
@@ -2230,6 +2230,7 @@ function restartMonitorStream() {
     window.monitorCaptureFallbackTimer = null;
   }
   window.monitorUsingCaptureFallback = false;
+  window.monitorStreamMode = 'mjpeg';
   if (offline) offline.style.display = 'none';
   img.style.display = 'block';
   img.src = `/api/esp32/stream?t=${Date.now()}`;
@@ -2237,7 +2238,7 @@ function restartMonitorStream() {
 }
 
 function handleMonitorStreamError() {
-  if (!window.monitorUsingCaptureFallback) {
+  if (window.monitorStreamMode === 'mjpeg') {
     startMonitorCaptureFallback();
     return;
   }
@@ -2246,7 +2247,7 @@ function handleMonitorStreamError() {
   const offline = document.getElementById('monitorOffline');
   if (img) img.style.display = 'none';
   if (offline) offline.style.display = 'block';
-  setMonitorOnline(false, 'Stream no disponible');
+  setMonitorOnline(false, 'Preview no disponible');
 }
 
 function handleMonitorFrameLoaded() {
@@ -2254,8 +2255,10 @@ function handleMonitorFrameLoaded() {
   const offline = document.getElementById('monitorOffline');
   if (offline) offline.style.display = 'none';
   if (img) img.style.display = 'block';
-  if (window.monitorUsingCaptureFallback) {
+  if (window.monitorStreamMode === 'capture') {
     setMonitorOnline(true, 'Vista por capturas periodicas');
+  } else if (window.monitorStreamMode === 'mjpeg') {
+    setMonitorOnline(true, 'Stream MJPEG activo');
   }
 }
 
@@ -2265,9 +2268,10 @@ function startMonitorCaptureFallback() {
   if (!img) return;
 
   window.monitorUsingCaptureFallback = true;
+  window.monitorStreamMode = 'capture';
   if (offline) offline.style.display = 'none';
   img.style.display = 'block';
-  setMonitorActionStatus('MJPEG no disponible; usando capturas periodicas.', 'warn');
+  setMonitorActionStatus('Mostrando preview por capturas periodicas.', 'ok');
 
   const refreshFrame = () => {
     img.src = `/api/esp32/capture?quality=10&size=vga&t=${Date.now()}`;
@@ -2321,8 +2325,15 @@ async function forceMonitorCapture() {
     if (!response.ok) throw new Error('No se pudo capturar desde el ESP32-CAM');
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    setMonitorActionStatus('Captura abierta en una pestaña nueva.', 'ok');
+    const img = document.getElementById('monitorStream');
+    const offline = document.getElementById('monitorOffline');
+    if (img) {
+      img.src = url;
+      img.style.display = 'block';
+    }
+    if (offline) offline.style.display = 'none';
+    setMonitorOnline(true, 'Captura recibida');
+    setMonitorActionStatus('Captura mostrada en el preview.', 'ok');
     await refreshMonitorStatus();
   } catch (error) {
     setMonitorActionStatus(error.message || 'No se pudo tomar captura', 'error');
@@ -2331,6 +2342,7 @@ async function forceMonitorCapture() {
 
 function setupLiveMonitor() {
   if (window.monitorStatusTimer) return;
+  startMonitorCaptureFallback();
   refreshMonitorStatus();
   window.monitorStatusTimer = setInterval(refreshMonitorStatus, 2000);
 }
