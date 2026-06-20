@@ -57,7 +57,8 @@ BURST_COUNT = 10               # frames por evento (recomendado: 8–12)
 | `BURST_COUNT` | Frames capturados por evento | `10` |
 | `BURST_DELAY` | Segundos entre frames | `0.30` |
 | `MODEL_NAME` | Modelo DeepFace | `ArcFace` |
-| `DETECTOR_BACKEND` | Detector de caras | `opencv` |
+| `DETECTOR_BACKEND` | Detector de caras principal | `yunet` |
+| `FALLBACK_DETECTOR_BACKEND` | Detector de respaldo si falla el principal | `opencv` |
 | `MAX_DISTANCE` | Umbral máximo de distancia coseno | `0.52` |
 | `MIN_BLUR` | Varianza Laplaciana mínima | `60.0` |
 | `MIN_BRIGHTNESS` | Brillo promedio mínimo (0–255) | `40.0` |
@@ -118,9 +119,41 @@ python db_tools.py tune --image ruta/a/imagen.jpg
 
 ## Ejecución
 
+### Dashboard web
+
+Para abrir la interfaz web ejecuta un solo archivo:
+
+```bash
+python app.py
+```
+
+Luego abre:
+
+```text
+http://127.0.0.1:5000
+```
+
+El dashboard usa la IP configurada del ESP32-CAM (`192.168.0.50` por defecto).
+No escanea toda la red automaticamente: si tu ESP32 imprime otra IP en el
+monitor serial, actualiza `esp32_ip` en la configuracion del dashboard o en la
+base SQLite.
+
+La pagina **Monitor en Vivo** muestra el stream real de la ESP32-CAM usando el
+proxy del backend (`/api/esp32/stream`) para reutilizar las credenciales
+`admi1 / 123456789`. Desde esa vista tambien puedes tomar una captura, abrir o
+cerrar el relay, encender o apagar el flash, armar o desarmar el PIR y
+reconectar el stream.
+
+### Motor de reconocimiento
+
 ```bash
 python main.py
 ```
+
+Para camaras ESP32-CAM con baja calidad se usa `yunet` como detector principal
+por ser mas rapido y estable en rostros pequeños o imagen comprimida. Si YuNet
+no esta disponible en la instalacion, el sistema vuelve automaticamente a
+`opencv`.
 
 Salida esperada al arrancar:
 
@@ -130,7 +163,7 @@ Salida esperada al arrancar:
 =======================================================
  ESP32 IP   : 192.168.0.50
  Base datos : /ruta/base_datos
- Modelo     : ArcFace | Detector: opencv
+ Modelo     : ArcFace | Detector: yunet (fallback: opencv)
  Frames/evento: 10 | Max dist: 0.52
 =======================================================
 [INIT] Cargando embeddings de la base de datos...
@@ -280,6 +313,70 @@ python db_tools.py rebuild
 El archivo `.ino` está en `Codigo_Arquitectura_CAMERA/`.  
 Flashear con Arduino IDE o PlatformIO.  
 La ESP32-CAM debe estar en la misma red local que el backend Python.
+
+### Cargar cambios desde Arduino IDE
+
+Cada vez que se edite el dashboard/backend y el flujo del ESP32 cambie, abre en Arduino IDE:
+
+```text
+Codigo_Arquitectura_CAMERA/Codigo_Arquitectura_CAMERA.ino
+```
+
+Luego selecciona la placa ESP32-CAM correcta, el puerto COM y pulsa **Subir**.
+
+La versión esperada de este firmware es:
+
+```text
+faceguard-stream-preview-2026-06-18
+```
+
+Después de subirlo, verifica en el navegador:
+
+```text
+http://192.168.0.50/version
+```
+
+O desde el dashboard/backend:
+
+```text
+http://127.0.0.1:5000/api/esp32/version
+```
+
+Si la versión no aparece, el ESP32-CAM todavía no tiene cargados los cambios del Arduino IDE.
+
+---
+
+## Acceso local con administradores
+
+El panel web del ESP32 y los endpoints sensibles usan HTTP Basic Auth. Las rutas
+de solo lectura que necesita el dashboard para previsualizar y capturar imagenes
+quedan sin login para evitar bloqueos del navegador:
+
+- `GET /version`
+- `GET /status`
+- `GET /capture`
+- `GET :81/stream`
+
+Los controles de relay, flash, PIR, apertura de acceso, verificacion y
+administradores siguen protegidos con usuario y contrasena.
+El administrador inicial se crea automaticamente al flashear el firmware:
+
+| Usuario | Contraseña |
+|---|---|
+| `admi1` | `123456789` |
+
+El panel web permite agregar administradores, eliminar administradores y cambiar
+contraseñas. No se puede eliminar el ultimo administrador.
+
+Si cambias la contraseña del administrador que usa el backend Python, inicia
+`app.py` y `main.py` con las mismas credenciales:
+
+```powershell
+$env:ESP32_AUTH_USER="admi1"
+$env:ESP32_AUTH_PASS="nueva-contraseña"
+python app.py
+python main.py
+```
 
 ---
 

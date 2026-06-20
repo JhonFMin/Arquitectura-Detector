@@ -26,6 +26,7 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <WebServer.h>
+#include <Preferences.h>
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 #include "esp_wifi.h"
@@ -52,6 +53,19 @@ IPAddress secondaryDNS(1, 1, 1, 1);
 
 #define STREAM_QUALITY          10
 #define CAPTURE_QUALITY         10
+
+// Administrador inicial. Luego puedes cambiar la clave o gestionar admins desde el panel.
+#define MAX_ADMINS               8
+const char* DEFAULT_AUTH_USER     = "admi1";
+const char* DEFAULT_AUTH_PASSWORD = "123456789";
+const char* AUTH_REALM            = "FaceGuard";
+const char* AUTH_NAMESPACE        = "auth";
+
+// Version que debe cargarse desde Arduino IDE al ESP32-CAM.
+// Permite confirmar desde /status o /version que la placa tiene este firmware.
+#define FIRMWARE_VERSION "faceguard-stream-preview-2026-06-18"
+#define FIRMWARE_API_VERSION "2"
+#define DASHBOARD_URL "http://127.0.0.1:5000/"
 
 // Variables ajustables desde web sin recompilar
 uint32_t frameIntervalMs          = FRAME_INTERVAL_MS; // intervalo entre frames del stream (50–2000 ms)
@@ -86,6 +100,7 @@ int      flashBrightnessThreshold = 600; // aec_value > umbral → flash encendi
 WebServer controlServer(CONTROL_PORT);
 WebServer streamServer(STREAM_PORT);
 SemaphoreHandle_t camMutex = nullptr;
+Preferences authPrefs;
 
 // ================= ESTADO =================
 volatile bool streamActive = false;
@@ -329,11 +344,137 @@ void sendJSON(String payload) {
   controlServer.send(200, "application/json", payload);
 }
 
+void sendJSONStatus(int status, String payload) {
+  controlServer.sendHeader("Access-Control-Allow-Origin", "*");
+  controlServer.send(status, "application/json", payload);
+}
+
+void sendError(int status, const String& message) {
+  sendJSONStatus(status, "{\"ok\":false,\"error\":\"" + message + "\"}");
+}
+
+String adminUserKey(int index) {
+  return String("u") + index;
+}
+
+String adminPassKey(int index) {
+  return String("p") + index;
+}
+
+int getAdminCount() {
+  int count = (int)authPrefs.getUInt("count", 0);
+  if (count < 0 || count > MAX_ADMINS) return 0;
+  return count;
+}
+
+String getAdminUser(int index) {
+  return authPrefs.getString(adminUserKey(index).c_str(), "");
+}
+
+String getAdminPassword(int index) {
+  return authPrefs.getString(adminPassKey(index).c_str(), "");
+}
+
+void writeAdmin(int index, const String& user, const String& password) {
+  authPrefs.putString(adminUserKey(index).c_str(), user);
+  authPrefs.putString(adminPassKey(index).c_str(), password);
+}
+
+void clearAdmin(int index) {
+  authPrefs.remove(adminUserKey(index).c_str());
+  authPrefs.remove(adminPassKey(index).c_str());
+}
+
+bool isValidUsername(const String& user) {
+  if (user.length() < 1 || user.length() > 31) return false;
+  for (size_t i = 0; i < user.length(); i++) {
+    char c = user[i];
+    bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') || c == '_' || c == '-' ||
+              c == '.' || c == '@';
+    if (!ok) return false;
+  }
+  return true;
+}
+
+bool isValidPassword(const String& password) {
+  return password.length() >= 8 && password.length() <= 63;
+}
+
+int findAdminIndex(const String& user) {
+  int count = getAdminCount();
+  for (int i = 0; i < count; i++) {
+    if (getAdminUser(i) == user) return i;
+  }
+  return -1;
+}
+
+void initAuthStore() {
+  authPrefs.begin(AUTH_NAMESPACE, false);
+
+  int count = getAdminCount();
+  if (count < 1) {
+    authPrefs.clear();
+    authPrefs.putUInt("count", 1);
+    writeAdmin(0, DEFAULT_AUTH_USER, DEFAULT_AUTH_PASSWORD);
+    Serial.println("[AUTH] Admin inicial creado");
+  }
+}
+
+bool requireAuth(WebServer& server) {
+  int count = getAdminCount();
+  for (int i = 0; i < count; i++) {
+    String user = getAdminUser(i);
+    String password = getAdminPassword(i);
+    if (user.length() > 0 && server.authenticate(user.c_str(), password.c_str())) {
+      return true;
+    }
+  }
+
+  server.sendHeader("Cache-Control", "no-store");
+  server.requestAuthentication(BASIC_AUTH, AUTH_REALM, "Autenticacion requerida");
+  return false;
+}
+
+bool requireAuth() {
+  return requireAuth(controlServer);
+}
+
+String jsonEscape(String value) {
+  value.replace("\\", "\\\\");
+  value.replace("\"", "\\\"");
+  return value;
+}
+
+String buildFirmwareInfoJSON() {
+  String json = "{";
+  json += "\"firmwareVersion\":\"" FIRMWARE_VERSION "\",";
+  json += "\"apiVersion\":\"" FIRMWARE_API_VERSION "\",";
+  json += "\"dashboardUrl\":\"" DASHBOARD_URL "\",";
+  json += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
+  json += "\"controlPort\":" + String(CONTROL_PORT) + ",";
+  json += "\"streamPort\":" + String(STREAM_PORT) + ",";
+  json += "\"captureUrl\":\"/capture?quality=10&size=vga&fast=1\",";
+  json += "\"statusUrl\":\"/status\",";
+  json += "\"openUrl\":\"/access/open?ms=5000\",";
+  json += "\"closeUrl\":\"/access/close\",";
+  json += "\"ackUrl\":\"/verify/ack\"";
+  json += "}";
+  return json;
+}
+
+void handleVersion() {
+  sendJSON(buildFirmwareInfoJSON());
+}
+
 // ================= STATUS =================
 void handleStatus() {
   sensor_t* s = esp_camera_sensor_get();
 
   String json = "{";
+  json += "\"firmwareVersion\":\"" FIRMWARE_VERSION "\",";
+  json += "\"apiVersion\":\"" FIRMWARE_API_VERSION "\",";
+  json += "\"dashboardUrl\":\"" DASHBOARD_URL "\",";
   json += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
   json += "\"pir\":" + String(pirState) + ",";
   json += "\"pirArmed\":" + String(pirArmed ? "true" : "false") + ",";
@@ -389,6 +530,8 @@ void handleStatus() {
 
 // ================= CONTROL CAMARA =================
 void handleControl() {
+  if (!requireAuth()) return;
+
   if (!controlServer.hasArg("var") || !controlServer.hasArg("val")) {
     controlServer.send(400, "text/plain", "faltan var o val");
     return;
@@ -481,41 +624,55 @@ void handleControl() {
 
 // ================= HANDLERS SISTEMA =================
 void handleRelayOn() {
+  if (!requireAuth()) return;
+
   relayManualOn = true;
   applyOutputs();
   sendJSON("{\"ok\":true,\"relayManualOn\":true}");
 }
 
 void handleRelayOff() {
+  if (!requireAuth()) return;
+
   relayManualOn = false;
   if (!accessGranted) setRelay(false);
   sendJSON("{\"ok\":true,\"relayManualOn\":false}");
 }
 
 void handleFlashOn() {
+  if (!requireAuth()) return;
+
   flashManualOn = true;
   applyOutputs();
   sendJSON("{\"ok\":true,\"flashManualOn\":true}");
 }
 
 void handleFlashOff() {
+  if (!requireAuth()) return;
+
   flashManualOn = false;
   applyOutputs();
   sendJSON("{\"ok\":true,\"flashManualOn\":false}");
 }
 
 void handlePirArm() {
+  if (!requireAuth()) return;
+
   pirArmed = true;
   sendJSON("{\"ok\":true,\"pirArmed\":true}");
 }
 
 void handlePirDisarm() {
+  if (!requireAuth()) return;
+
   pirArmed = false;
   pirDelayRunning = false;
   sendJSON("{\"ok\":true,\"pirArmed\":false}");
 }
 
 void handleAccessOpen() {
+  if (!requireAuth()) return;
+
   unsigned long duration = ACCESS_OPEN_MS;
   if (controlServer.hasArg("ms")) {
     duration = constrain(controlServer.arg("ms").toInt(), 1000, 15000);
@@ -525,13 +682,112 @@ void handleAccessOpen() {
 }
 
 void handleAccessClose() {
+  if (!requireAuth()) return;
+
   closeAccessRelay();
   sendJSON("{\"ok\":true,\"relay\":\"CLOSED\"}");
 }
 
 void handleVerifyAck() {
+  if (!requireAuth()) return;
+
   verificationRequested = false;
   sendJSON("{\"ok\":true,\"verifyRequested\":false}");
+}
+
+// ================= ADMINISTRADORES =================
+void handleAdminList() {
+  if (!requireAuth()) return;
+
+  int count = getAdminCount();
+  String json = "{\"ok\":true,\"admins\":[";
+  for (int i = 0; i < count; i++) {
+    if (i > 0) json += ",";
+    json += "\"" + jsonEscape(getAdminUser(i)) + "\"";
+  }
+  json += "],\"maxAdmins\":" + String(MAX_ADMINS) + "}";
+  sendJSON(json);
+}
+
+void handleAdminAdd() {
+  if (!requireAuth()) return;
+
+  String user = controlServer.arg("user");
+  String password = controlServer.arg("password");
+  user.trim();
+  password.trim();
+
+  if (!isValidUsername(user)) {
+    sendError(400, "usuario_invalido");
+    return;
+  }
+  if (!isValidPassword(password)) {
+    sendError(400, "password_invalido");
+    return;
+  }
+  if (findAdminIndex(user) >= 0) {
+    sendError(409, "admin_ya_existe");
+    return;
+  }
+
+  int count = getAdminCount();
+  if (count >= MAX_ADMINS) {
+    sendError(409, "limite_de_admins");
+    return;
+  }
+
+  writeAdmin(count, user, password);
+  authPrefs.putUInt("count", count + 1);
+  sendJSON("{\"ok\":true}");
+}
+
+void handleAdminPassword() {
+  if (!requireAuth()) return;
+
+  String user = controlServer.arg("user");
+  String password = controlServer.arg("password");
+  user.trim();
+  password.trim();
+
+  if (!isValidPassword(password)) {
+    sendError(400, "password_invalido");
+    return;
+  }
+
+  int index = findAdminIndex(user);
+  if (index < 0) {
+    sendError(404, "admin_no_existe");
+    return;
+  }
+
+  authPrefs.putString(adminPassKey(index).c_str(), password);
+  sendJSON("{\"ok\":true}");
+}
+
+void handleAdminDelete() {
+  if (!requireAuth()) return;
+
+  String user = controlServer.arg("user");
+  user.trim();
+
+  int count = getAdminCount();
+  if (count <= 1) {
+    sendError(409, "no_puedes_eliminar_el_ultimo_admin");
+    return;
+  }
+
+  int index = findAdminIndex(user);
+  if (index < 0) {
+    sendError(404, "admin_no_existe");
+    return;
+  }
+
+  for (int i = index; i < count - 1; i++) {
+    writeAdmin(i, getAdminUser(i + 1), getAdminPassword(i + 1));
+  }
+  clearAdmin(count - 1);
+  authPrefs.putUInt("count", count - 1);
+  sendJSON("{\"ok\":true}");
 }
 
 // ================= CAPTURE =================
@@ -616,6 +872,8 @@ void handleCapture() {
 
 // ================= PANEL WEB =================
 void handleRoot() {
+  if (!requireAuth()) return;
+
   String html = R"rawliteral(
 <!DOCTYPE html>
 <html lang="es">
@@ -638,6 +896,7 @@ button,select,input[type=range]{
 }
 button{cursor:pointer}
 button:hover{background:#334155}
+input[type=text],input[type=password]{background:#1e293b;color:#fff;padding:10px 12px;border:1px solid #334155;border-radius:10px}
 img{max-width:100%;border-radius:12px;border:1px solid #334155;margin-top:16px}
 .ok{color:#22c55e}
 .bad{color:#ef4444}
@@ -646,6 +905,8 @@ img{max-width:100%;border-radius:12px;border:1px solid #334155;margin-top:16px}
 @media(max-width:1000px){.wrap{grid-template-columns:1fr}}
 .ctrl-row{display:grid;grid-template-columns:130px 1fr 60px;gap:10px;align-items:center;margin:8px 0}
 .switch-row{display:grid;grid-template-columns:130px auto 60px;gap:10px;align-items:center;margin:8px 0}
+.admin-row{display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:8px;align-items:center}
+@media(max-width:900px){.admin-row{grid-template-columns:1fr}}
 small{color:#94a3b8}
 .section-title{margin-top:8px;margin-bottom:10px;color:#93c5fd}
 </style>
@@ -668,6 +929,18 @@ small{color:#94a3b8}
   </div>
 
   <div id="msg">Listo.</div>
+
+  <div class="card" style="margin-top:12px">
+    <h2>Administradores</h2>
+    <div id="adminList" class="label">-</div>
+    <div class="admin-row" style="margin-top:10px">
+      <input id="admin_user" type="text" placeholder="usuario">
+      <input id="admin_password" type="password" placeholder="contraseña">
+      <button onclick="addAdmin()">Agregar</button>
+      <button onclick="changeAdminPassword()">Cambiar clave</button>
+      <button onclick="deleteAdmin()">Eliminar</button>
+    </div>
+  </div>
 
   <div class="grid" style="margin-top:12px">
     <div class="card"><div class="label">IP</div><div class="value" id="ip">-</div></div>
@@ -862,10 +1135,28 @@ document.getElementById("stream").src = "http://" + host + ":81/stream";
 
 function setMsg(text){ document.getElementById("msg").textContent = text; }
 
+async function authedFetch(url, options = {}){
+  const headers = Object.assign({}, options.headers || {});
+  const response = await fetch(url, Object.assign({}, options, {headers, credentials:"same-origin"}));
+  if(response.status === 401){
+    setMsg("Usuario o contraseña no validos");
+  }
+  return response;
+}
+
+function formOptions(values){
+  return {
+    method:"POST",
+    headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams(values)
+  };
+}
+
 async function sendCmd(url){
   try{
     setMsg("Enviando: " + url);
-    await fetch(url, {method:"GET"});
+    const r = await authedFetch(url, {method:"GET"});
+    if(!r.ok) throw new Error("fallo");
     setMsg("Comando ejecutado: " + url);
     setTimeout(updateStatus, 200);
   }catch(e){
@@ -875,7 +1166,16 @@ async function sendCmd(url){
 }
 
 function openCapture(){
-  window.open("/capture?quality=10&size=vga&fast=1", "_blank");
+  authedFetch("/capture?quality=10&size=vga&fast=1")
+    .then(r => {
+      if(!r.ok) throw new Error("fallo");
+      return r.blob();
+    })
+    .then(blob => window.open(URL.createObjectURL(blob), "_blank"))
+    .catch(e => {
+      console.error(e);
+      setMsg("Error abriendo captura");
+    });
 }
 
 function paintBool(id, value, trueText="SI", falseText="NO"){
@@ -893,13 +1193,76 @@ function showVal(id){
 async function setCam(variable, value){
   try{
     setMsg("Aplicando " + variable + "=" + value);
-    const r = await fetch(`/control?var=${variable}&val=${value}`);
+    const r = await authedFetch(`/control?var=${variable}&val=${value}`);
     if(!r.ok) throw new Error("fallo");
     setMsg("Aplicado: " + variable + "=" + value);
     setTimeout(updateStatus, 150);
   }catch(e){
     console.error(e);
     setMsg("Error aplicando " + variable);
+  }
+}
+
+function adminFields(){
+  return {
+    user:document.getElementById("admin_user").value.trim(),
+    password:document.getElementById("admin_password").value.trim()
+  };
+}
+
+async function loadAdmins(){
+  try{
+    const r = await authedFetch("/admin/list");
+    if(!r.ok) throw new Error("fallo");
+    const data = await r.json();
+    document.getElementById("adminList").textContent =
+      data.admins.join(", ") + " (" + data.admins.length + "/" + data.maxAdmins + ")";
+  }catch(e){
+    console.error(e);
+    document.getElementById("adminList").textContent = "No disponible";
+  }
+}
+
+async function addAdmin(){
+  const fields = adminFields();
+  try{
+    const r = await authedFetch("/admin/add", formOptions(fields));
+    if(!r.ok) throw new Error("fallo");
+    setMsg("Administrador agregado");
+    document.getElementById("admin_password").value = "";
+    loadAdmins();
+  }catch(e){
+    console.error(e);
+    setMsg("No se pudo agregar administrador");
+  }
+}
+
+async function changeAdminPassword(){
+  const fields = adminFields();
+  try{
+    const r = await authedFetch("/admin/password", formOptions(fields));
+    if(!r.ok) throw new Error("fallo");
+    setMsg("Clave actualizada");
+    document.getElementById("admin_password").value = "";
+    loadAdmins();
+  }catch(e){
+    console.error(e);
+    setMsg("No se pudo cambiar la clave");
+  }
+}
+
+async function deleteAdmin(){
+  const fields = adminFields();
+  try{
+    const r = await authedFetch("/admin/delete", formOptions({user:fields.user}));
+    if(!r.ok) throw new Error("fallo");
+    setMsg("Administrador eliminado");
+    document.getElementById("admin_user").value = "";
+    document.getElementById("admin_password").value = "";
+    loadAdmins();
+  }catch(e){
+    console.error(e);
+    setMsg("No se pudo eliminar administrador");
   }
 }
 
@@ -944,7 +1307,8 @@ function syncUI(s){
 
 async function updateStatus(){
   try{
-    const r = await fetch("/status");
+    const r = await authedFetch("/status");
+    if(!r.ok) throw new Error("fallo");
     const s = await r.json();
 
     document.getElementById("ip").textContent = s.ip;
@@ -969,6 +1333,7 @@ async function updateStatus(){
 
 setInterval(updateStatus, 1500);
 updateStatus();
+loadAdmins();
 </script>
 </body>
 </html>
@@ -1045,6 +1410,7 @@ void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   Serial.begin(115200);
   delay(1000);
+  initAuthStore();
 
   pinMode(PIR_GPIO_NUM, INPUT);
   pinMode(RELAY_GPIO_NUM, OUTPUT);
@@ -1067,9 +1433,14 @@ void setup() {
   connectWiFi();
 
   controlServer.on("/", HTTP_GET, handleRoot);
+  controlServer.on("/version", HTTP_GET, handleVersion);
   controlServer.on("/status", HTTP_GET, handleStatus);
   controlServer.on("/capture", HTTP_GET, handleCapture);
   controlServer.on("/control", HTTP_GET, handleControl);
+  controlServer.on("/admin/list", HTTP_GET, handleAdminList);
+  controlServer.on("/admin/add", HTTP_POST, handleAdminAdd);
+  controlServer.on("/admin/password", HTTP_POST, handleAdminPassword);
+  controlServer.on("/admin/delete", HTTP_POST, handleAdminDelete);
 
   controlServer.on("/relay/on", HTTP_GET, handleRelayOn);
   controlServer.on("/relay/off", HTTP_GET, handleRelayOff);
@@ -1091,6 +1462,11 @@ void setup() {
   xTaskCreatePinnedToCore(streamTask, "streamTask", 8192, nullptr, 1, nullptr, 0);
 
   Serial.println("Servidor listo.");
+  Serial.print("Firmware FaceGuard: ");
+  Serial.println(FIRMWARE_VERSION);
+  Serial.print("Verificar version: http://");
+  Serial.print(WiFi.localIP());
+  Serial.println("/version");
 }
 
 // ================= LOOP =================

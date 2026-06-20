@@ -1,0 +1,2764 @@
+﻿<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FaceGuard — Control de Acceso</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --sidebar-w: 195px;
+      --accent: #00ff88;
+      --accent-dim: rgba(0,255,136,.12);
+      --accent-red: #ff4466;
+      --accent-yellow: #fbbf24;
+      --bg-dark: #0b1120;
+      --bg-card: #111c2d;
+      --bg-card2: #152233;
+      --bg-sidebar: #0d1424;
+      --border-color: #1e3348;
+      --text-muted: #64748b;
+      --text-body: #94a3b8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: var(--bg-dark);
+      color: var(--text-body);
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      width: var(--sidebar-w);
+      height: 100vh;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .sidebar-brand {
+      padding: 22px 18px 18px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .sidebar-logo-text {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -.01em;
+      line-height: 1;
+    }
+    .sidebar-logo-sub {
+      font-size: .62rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-top: 3px;
+    }
+
+    .nav-section {
+      padding: 16px 18px 5px;
+      font-size: .6rem;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: #3a5a7a;
+    }
+
+    .nav-link-custom {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      margin: 2px 8px;
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: .82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+      text-decoration: none;
+      border: none;
+      background: none;
+      width: calc(100% - 16px);
+      text-align: left;
+    }
+    .nav-link-custom:hover { background: rgba(255,255,255,.04); color: #cbd5e1; }
+    .nav-link-custom.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-weight: 600;
+      border-left: 2px solid var(--accent);
+      padding-left: 10px;
+    }
+    .nav-link-custom .nav-icon { width: 17px; text-align: center; font-size: .92rem; flex-shrink:0; }
+    .nav-link-custom .badge-count {
+      margin-left: auto;
+      background: var(--accent-red);
+      color: #fff;
+      border-radius: 8px;
+      font-size: .62rem;
+      padding: 1px 6px;
+      font-weight: 700;
+    }
+
+    .sidebar-user {
+      margin: auto 10px 14px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sidebar-user-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #00b4ff);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700; color: #000;
+      flex-shrink: 0;
+    }
+
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot-green { background: var(--accent); box-shadow: 0 0 5px var(--accent); animation: pulse 2s infinite; }
+    .dot-red   { background: var(--accent-red); }
+    .dot-yellow{ background: var(--accent-yellow); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ── MAIN ── */
+    #main {
+      margin-left: var(--sidebar-w);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      position: sticky; top: 0; z-index: 90;
+      background: rgba(11,17,32,.93);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 28px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .topbar-brand {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .topbar-sep { color: var(--border-color); font-size: 1.1rem; }
+    .topbar-breadcrumb {
+      font-size: .78rem;
+      color: var(--text-muted);
+    }
+    .topbar-search {
+      margin-left: auto;
+      position: relative;
+    }
+    .topbar-search input {
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-body);
+      font-size: .78rem;
+      padding: 5px 12px 5px 32px;
+      width: 200px;
+      outline: none;
+      transition: border-color .15s, width .2s;
+    }
+    .topbar-search input:focus { border-color: var(--accent); width: 240px; }
+    .topbar-search input::placeholder { color: var(--text-muted); }
+    .topbar-search .search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); font-size: .82rem;
+    }
+    .topbar-icon {
+      position: relative;
+      width: 34px; height: 34px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: .95rem;
+      transition: all .15s;
+    }
+    .topbar-icon:hover { color: #fff; border-color: #2a4060; }
+    .topbar-notif-dot {
+      position: absolute; top: 5px; right: 5px;
+      width: 6px; height: 6px;
+      background: var(--accent-red);
+      border-radius: 50%;
+    }
+    .topbar-chip {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(0,255,136,.07);
+      border: 1px solid rgba(0,255,136,.2);
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .topbar-user-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #00b4ff);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 700; color: #000;
+      cursor: pointer;
+    }
+    #clock { font-size: .72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+    /* ── PAGE HEADER ── */
+    .content { padding: 28px 32px; }
+    .page-header { margin-bottom: 28px; }
+    .page-header h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: #fff;
+      margin: 0 0 4px;
+      letter-spacing: -.02em;
+    }
+    .page-header p { font-size: .82rem; color: var(--text-muted); margin: 0; }
+
+    /* ── CARDS ── */
+    .card-custom {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 22px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 20px 22px;
+      transition: transform .15s, border-color .2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); border-color: rgba(0,255,136,.25); }
+    .stat-icon {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+    }
+    .stat-icon.green  { background: rgba(0,255,136,.1);  color: var(--accent); }
+    .stat-icon.red    { background: rgba(255,68,102,.1); color: var(--accent-red); }
+    .stat-icon.blue   { background: rgba(0,180,255,.1);  color: #00b4ff; }
+    .stat-icon.yellow { background: rgba(251,191,36,.1); color: var(--accent-yellow); }
+
+    .stat-value { font-size: 2rem; font-weight: 800; color: #fff; line-height: 1.1; letter-spacing: -.02em; }
+    .stat-label { font-size: .75rem; color: var(--text-muted); margin-top: 3px; font-weight: 500; }
+    .stat-delta { font-size: .72rem; margin-top: 10px; font-weight: 500; }
+    .delta-up   { color: var(--accent); }
+    .delta-down { color: var(--accent-red); }
+
+    /* ── TABLE ── */
+    .table-custom { font-size: .83rem; }
+    .table-custom thead th {
+      background: transparent;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      padding: 10px 14px;
+    }
+    .table-custom tbody td {
+      border-color: var(--border-color);
+      padding: 12px 14px;
+      vertical-align: middle;
+      color: var(--text-body);
+    }
+    .table-custom tbody tr:hover { background: rgba(255,255,255,.02); }
+
+    .badge-permit  { background: rgba(0,255,136,.12); color: var(--accent);        border-radius: 6px; padding: 3px 10px; font-size:.72rem; font-weight:700; letter-spacing:.03em; }
+    .badge-deny    { background: rgba(255,68,102,.12); color: var(--accent-red);   border-radius: 6px; padding: 3px 10px; font-size:.72rem; font-weight:700; letter-spacing:.03em; }
+    .badge-unknown { background: rgba(251,191,36,.12); color: var(--accent-yellow);border-radius: 6px; padding: 3px 10px; font-size:.72rem; font-weight:700; letter-spacing:.03em; }
+
+    .avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00b4ff, var(--accent));
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700; color: #000;
+      flex-shrink: 0;
+    }
+
+    /* ── SECTION PAGES ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── LIVE MONITOR ── */
+    .live-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .live-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: transform .15s;
+    }
+    .live-card:hover { transform: translateY(-2px); }
+    .live-thumb {
+      height: 140px;
+      background: #090f1c;
+      display: flex; align-items: center; justify-content: center;
+      color: #1e3348; font-size: 3rem;
+      position: relative;
+    }
+    .live-stamp {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,.75);
+      font-size: .62rem; color: #94a3b8;
+      padding: 2px 7px; border-radius: 4px;
+      font-family: monospace;
+    }
+    .live-info { padding: 10px 12px; }
+    .live-info .name { font-weight: 600; font-size: .83rem; color: #fff; }
+    .live-info .time { font-size: .7rem; color: var(--text-muted); }
+    .monitor-stream {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      background: #050914;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .monitor-stream img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .monitor-stream-offline {
+      color: var(--text-muted);
+      font-size: .86rem;
+      text-align: center;
+      padding: 20px;
+    }
+    .monitor-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+    }
+
+    /* ── PERSONA CARD ── */
+    .person-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 10px;
+      transition: transform .15s, border-color .2s;
+      cursor: pointer;
+    }
+    .person-card:hover { transform: translateY(-2px); border-color: rgba(0,255,136,.3); }
+    .person-avatar {
+      width: 70px; height: 70px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(0,180,255,.3), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.7rem; font-weight: 700; color: #fff;
+      border: 2px solid rgba(0,255,136,.2);
+    }
+    .person-name { font-weight: 700; color: #fff; text-align: center; font-size: .88rem; }
+    .person-rol  { font-size: .7rem; color: var(--text-muted); text-align: center; text-transform: uppercase; letter-spacing: .06em; }
+    .person-badge { font-size: .68rem; padding: 2px 9px; border-radius: 8px; font-weight:700; letter-spacing:.04em; }
+    .badge-active   { background: rgba(0,255,136,.12); color: var(--accent); }
+    .badge-inactive { background: rgba(255,68,102,.12); color: var(--accent-red); }
+
+    /* ── SCHEDULE ── */
+    .day-pill {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 700;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted); cursor: pointer; transition: all .15s;
+    }
+    .day-pill.active { background: var(--accent); color: #000; border-color: var(--accent); box-shadow: 0 0 10px rgba(0,255,136,.3); }
+
+    /* ── FORMS ── */
+    .form-control, .form-select {
+      background: #090f1c !important;
+      border-color: var(--border-color) !important;
+      color: #cbd5e1 !important;
+      border-radius: 8px !important;
+      font-size: .85rem !important;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 2px rgba(0,255,136,.12) !important;
+    }
+    .btn-accent {
+      background: var(--accent); color: #000; font-weight: 700;
+      border: none; border-radius: 8px;
+      transition: opacity .15s, box-shadow .15s;
+      letter-spacing: .02em;
+    }
+    .btn-accent:hover { opacity: .88; color: #000; box-shadow: 0 0 16px rgba(0,255,136,.3); }
+
+    /* ── CHART container ── */
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* ── ALERT ROW ── */
+    .alert-row {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .alert-row:last-child { border-bottom: none; }
+    .alert-icon-wrap {
+      width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+    }
+
+    /* ── SYSTEM STATUS ── */
+    .sys-metric {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border-color);
+      font-size: .83rem;
+    }
+    .sys-metric:last-child { border-bottom: none; }
+    .metric-bar-wrap { width: 100px; height: 5px; background: var(--border-color); border-radius: 3px; overflow: hidden; }
+    .metric-bar { height: 100%; border-radius: 3px; }
+
+    /* ── UNKNOWN CARD ── */
+    .unknown-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px; overflow: hidden;
+    }
+    .unknown-thumb {
+      height: 160px; background: #090f1c;
+      display: flex; align-items: center; justify-content: center;
+      color: #1e3348; font-size: 3.5rem;
+    }
+    .unknown-actions { padding: 12px; display: flex; gap: 8px; }
+
+    /* ── REPORT CARD ── */
+    .report-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: padding-left .15s;
+    }
+    .report-item:hover { padding-left: 6px; }
+    .report-item:last-child { border-bottom: none; }
+    .report-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink:0; }
+
+    /* ── SECTION label ── */
+    .section-label {
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1e3348; border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<nav id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-logo-text">FaceGuard</div>
+    <div class="sidebar-logo-sub">Vigilant Access</div>
+  </div>
+
+  <div style="padding: 8px 0 6px;">
+    <div class="nav-section">Principal</div>
+    <button class="nav-link-custom active" onclick="showPage('inicio')">
+      <span class="nav-icon"><i class="bi bi-grid-1x2"></i></span> Inicio
+    </button>
+    <button class="nav-link-custom" onclick="showPage('monitor')">
+      <span class="nav-icon"><i class="bi bi-camera-video"></i></span> Monitor en Vivo
+    </button>
+
+    <div class="nav-section">Gestión</div>
+    <button class="nav-link-custom" onclick="showPage('personas')">
+      <span class="nav-icon"><i class="bi bi-people"></i></span> Personas
+    </button>
+    <button class="nav-link-custom" onclick="showPage('imagenes')">
+      <span class="nav-icon"><i class="bi bi-images"></i></span> Base de Imágenes
+    </button>
+    <button class="nav-link-custom" onclick="showPage('horarios')">
+      <span class="nav-icon"><i class="bi bi-calendar-check"></i></span> Horarios de Acceso
+    </button>
+
+    <div class="nav-section">Registro</div>
+    <button class="nav-link-custom" onclick="showPage('historial')">
+      <span class="nav-icon"><i class="bi bi-clock-history"></i></span> Historial
+    </button>
+    <button class="nav-link-custom" onclick="showPage('desconocidos')">
+      <span class="nav-icon"><i class="bi bi-person-fill-exclamation"></i></span> Desconocidos
+      <span class="badge-count">3</span>
+    </button>
+    <button class="nav-link-custom" onclick="showPage('alertas')">
+      <span class="nav-icon"><i class="bi bi-bell"></i></span> Alertas
+      <span class="badge-count">5</span>
+    </button>
+
+    <div class="nav-section">Análisis</div>
+    <button class="nav-link-custom" onclick="showPage('estadisticas')">
+      <span class="nav-icon"><i class="bi bi-bar-chart-line"></i></span> Estadísticas
+    </button>
+    <button class="nav-link-custom" onclick="showPage('reportes')">
+      <span class="nav-icon"><i class="bi bi-file-earmark-bar-graph"></i></span> Reportes
+    </button>
+
+    <div class="nav-section">Sistema</div>
+    <button class="nav-link-custom" onclick="showPage('puertas')">
+      <span class="nav-icon"><i class="bi bi-door-closed"></i></span> Múltiples Puertas
+    </button>
+    <button class="nav-link-custom" onclick="showPage('configuracion')">
+      <span class="nav-icon"><i class="bi bi-sliders"></i></span> Configuración ESP32
+    </button>
+    <button class="nav-link-custom" onclick="showPage('sistema')">
+      <span class="nav-icon"><i class="bi bi-activity"></i></span> Estado del Sistema
+    </button>
+  </div>
+
+  <!-- User widget at bottom -->
+  <div class="sidebar-user mt-auto">
+    <div class="sidebar-user-avatar">AD</div>
+    <div style="min-width:0;">
+      <div style="font-size:.78rem;font-weight:700;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Admin</div>
+      <div style="font-size:.62rem;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">● System Online</div>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<div id="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-brand">Security Command Center</div>
+    <div class="topbar-sep">|</div>
+    <div class="topbar-breadcrumb" id="topbar-breadcrumb">Dashboard</div>
+
+    <div class="topbar-search">
+      <i class="bi bi-search search-icon"></i>
+      <input type="text" placeholder="Buscar métricas o reportes..."/>
+    </div>
+
+    <div id="clock"></div>
+
+    <div class="topbar-icon" onclick="showPage('alertas')" title="Alertas">
+      <i class="bi bi-bell"></i>
+      <span class="topbar-notif-dot"></span>
+    </div>
+    <div class="topbar-icon" onclick="showPage('sistema')" title="Estado del sistema">
+      <i class="bi bi-shield-check"></i>
+    </div>
+
+    <div class="topbar-chip">
+      <span class="status-dot dot-green"></span>
+      Sistema Activo
+    </div>
+
+    <div class="topbar-user-avatar" title="Admin">AD</div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══════ PAGE: INICIO ══════ -->
+    <div class="page active" id="page-inicio">
+      <div class="page-header d-flex align-items-start justify-content-between">
+        <div>
+          <h1>Dashboard Principal</h1>
+          <p>Resumen general del sistema de control de acceso biométrico</p>
+        </div>
+        <div class="d-flex gap-2 mt-1">
+          <div style="font-size:.72rem;color:var(--text-muted);background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:6px 14px;display:flex;align-items:center;gap:6px;">
+            <i class="bi bi-clock" style="color:var(--accent);"></i> <span id="clock-inline"></span>
+          </div>
+          <button class="btn btn-accent px-3" style="font-size:.82rem;"><i class="bi bi-arrow-clockwise me-1"></i>Actualizar</button>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="stat-value">47</div>
+                <div class="stat-label">Accesos hoy</div>
+                <div class="stat-delta delta-up"><i class="bi bi-arrow-up"></i> +12% vs ayer</div>
+              </div>
+              <div class="stat-icon green"><i class="bi bi-door-open-fill"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="stat-value">8</div>
+                <div class="stat-label">Personas registradas</div>
+                <div class="stat-delta delta-up"><i class="bi bi-arrow-up"></i> +2 esta semana</div>
+              </div>
+              <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Desconocidos pendientes</div>
+                <div class="stat-delta delta-down"><i class="bi bi-exclamation-triangle"></i> Requieren revisión</div>
+              </div>
+              <div class="stat-icon yellow"><i class="bi bi-person-fill-exclamation"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-xl-3">
+          <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Accesos denegados hoy</div>
+                <div class="stat-delta delta-down"><i class="bi bi-arrow-down"></i> -3 vs ayer</div>
+              </div>
+              <div class="stat-icon red"><i class="bi bi-shield-fill-x"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <!-- Últimos accesos -->
+        <div class="col-lg-8">
+          <div class="card-custom h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0 fw-semibold text-white">Últimos Accesos</h6>
+              <button class="btn btn-sm" style="background:var(--bg-dark);border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;" onclick="showPage('historial')">Ver todos <i class="bi bi-arrow-right"></i></button>
+            </div>
+            <table class="table table-custom mb-0">
+              <thead><tr>
+                <th>Persona</th><th>Hora</th><th>Score</th><th>Decisión</th><th>Frames</th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td><div class="d-flex align-items-center gap-2"><div class="avatar">JG</div><span>Persona real</span></div></td>
+                  <td><span style="color:#8b949e">14:32:07</span></td>
+                  <td><span style="color:var(--accent)">0.84</span></td>
+                  <td><span class="badge-permit">PERMITIDO</span></td>
+                  <td><span style="color:#6e7681">4/5</span></td>
+                </tr>
+                <tr>
+                  <td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#ff4c6a,#ff8c00)">?</div><span style="color:#8b949e">Desconocido</span></div></td>
+                  <td><span style="color:#8b949e">14:28:51</span></td>
+                  <td><span style="color:var(--accent-red)">0.21</span></td>
+                  <td><span class="badge-deny">DENEGADO</span></td>
+                  <td><span style="color:#6e7681">2/5</span></td>
+                </tr>
+                <tr>
+                  <td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#6f42c1,#00b4ff)">ML</div><span>Persona real</span></div></td>
+                  <td><span style="color:#8b949e">14:15:33</span></td>
+                  <td><span style="color:var(--accent)">0.91</span></td>
+                  <td><span class="badge-permit">PERMITIDO</span></td>
+                  <td><span style="color:#6e7681">5/5</span></td>
+                </tr>
+                <tr>
+                  <td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#fd7e14,#ffc107)">CR</div><span>Persona real</span></div></td>
+                  <td><span style="color:#8b949e">13:58:12</span></td>
+                  <td><span style="color:var(--accent-yellow)">0.61</span></td>
+                  <td><span class="badge-permit">PERMITIDO</span></td>
+                  <td><span style="color:#6e7681">3/5</span></td>
+                </tr>
+                <tr>
+                  <td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#ff4c6a,#ff8c00)">?</div><span style="color:#8b949e">Desconocido</span></div></td>
+                  <td><span style="color:#8b949e">13:44:09</span></td>
+                  <td><span style="color:var(--accent-red)">0.18</span></td>
+                  <td><span class="badge-deny">DENEGADO</span></td>
+                  <td><span style="color:#6e7681">1/5</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Accesos por hora (mini chart) -->
+        <div class="col-lg-4">
+          <div class="card-custom mb-3">
+            <h6 class="mb-3 fw-semibold text-white">Accesos hoy por hora</h6>
+            <div class="chart-wrap"><canvas id="chartHora"></canvas></div>
+          </div>
+          <div class="card-custom">
+            <h6 class="mb-2 fw-semibold text-white">Personas activas ahora</h6>
+            <div style="font-size:.78rem;color:#6e7681;margin-bottom:10px;">En instalaciones según horario</div>
+            <div class="d-flex flex-column gap-2">
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar" style="width:28px;height:28px;font-size:.7rem;">JG</div>
+                <span style="font-size:.82rem;">Persona real</span>
+                <span class="ms-auto" style="font-size:.7rem;color:var(--accent);">● Dentro</span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar" style="width:28px;height:28px;font-size:.7rem;background:linear-gradient(135deg,#6f42c1,#00b4ff)">ML</div>
+                <span style="font-size:.82rem;">Persona real</span>
+                <span class="ms-auto" style="font-size:.7rem;color:var(--accent);">● Dentro</span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar" style="width:28px;height:28px;font-size:.7rem;background:linear-gradient(135deg,#fd7e14,#ffc107)">CR</div>
+                <span style="font-size:.82rem;">Persona real</span>
+                <span class="ms-auto" style="font-size:.7rem;color:#6e7681;">● Fuera</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: MONITOR EN VIVO ══════ -->
+
+    <div class="page" id="page-monitor">
+      <div class="page-header d-flex align-items-start justify-content-between">
+        <div>
+          <h1>Monitor en Vivo</h1>
+          <p>Capturas del ESP32-CAM en tiempo real · Actualización automática</p>
+        </div>
+        <div class="d-flex gap-2 mt-1">
+          <span id="monitorLiveBadge" style="font-size:.75rem;color:var(--accent);display:flex;align-items:center;gap:6px;background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.2);border-radius:8px;padding:6px 14px;font-weight:700;letter-spacing:.05em;"><span class="status-dot dot-green"></span>EN VIVO</span>
+          <button class="btn btn-accent px-3" style="font-size:.82rem;" onclick="forceMonitorCapture()"><i class="bi bi-camera me-1"></i>Forzar Captura</button>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-xl-8">
+          <div class="card-custom">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h6 class="mb-0 fw-semibold text-white">Vista en tiempo real</h6>
+              <span id="monitorStatusText" style="font-size:.76rem;color:#6e7681;">Conectando...</span>
+            </div>
+            <div class="monitor-stream">
+              <img id="monitorStream" src="" alt="Preview ESP32-CAM" onload="handleMonitorFrameLoaded()" onerror="handleMonitorStreamError()">
+              <div id="monitorOffline" class="monitor-stream-offline" style="display:none;">
+                <i class="bi bi-camera-video-off" style="font-size:2rem;display:block;margin-bottom:8px;"></i>
+                No se pudo cargar el stream. Revisa IP, firmware y credenciales.
+              </div>
+            </div>
+            <div id="monitorActionStatus" style="font-size:.75rem;color:#6e7681;margin-top:10px;">Listo.</div>
+          </div>
+        </div>
+        <div class="col-xl-4">
+          <div class="card-custom mb-3">
+            <h6 class="fw-semibold text-white mb-3">Controles ESP32</h6>
+            <div class="monitor-actions">
+              <button class="btn btn-accent" onclick="forceMonitorCapture()"><i class="bi bi-camera me-1"></i>Captura</button>
+              <button class="btn btn-accent" onclick="sendEsp32Action('/api/esp32/relay/manual-on?ms=5000', 'POST', 'Relay abierto')"><i class="bi bi-unlock me-1"></i>Abrir</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="sendEsp32Action('/api/esp32/relay/manual-off', 'POST', 'Relay cerrado')"><i class="bi bi-lock me-1"></i>Cerrar</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="sendEsp32Action('/api/esp32/flash/on', 'POST', 'Flash encendido')"><i class="bi bi-lightning-charge me-1"></i>Flash ON</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="sendEsp32Action('/api/esp32/flash/off', 'POST', 'Flash apagado')"><i class="bi bi-lightning me-1"></i>Flash OFF</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="sendEsp32Action('/api/esp32/pir/arm', 'POST', 'PIR armado')"><i class="bi bi-broadcast me-1"></i>PIR ON</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="sendEsp32Action('/api/esp32/pir/disarm', 'POST', 'PIR desarmado')"><i class="bi bi-broadcast-pin me-1"></i>PIR OFF</button>
+              <button class="btn" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;" onclick="restartMonitorStream()"><i class="bi bi-arrow-clockwise me-1"></i>Reconectar</button>
+            </div>
+          </div>
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Estado de cámara</h6>
+            <div class="d-flex flex-column gap-2" style="font-size:.82rem;">
+              <div class="d-flex justify-content-between"><span>IP</span><strong id="monitorIp" class="text-white">-</strong></div>
+              <div class="d-flex justify-content-between"><span>PIR</span><strong id="monitorPir" class="text-white">-</strong></div>
+              <div class="d-flex justify-content-between"><span>Relay</span><strong id="monitorRelay" class="text-white">-</strong></div>
+              <div class="d-flex justify-content-between"><span>Flash</span><strong id="monitorFlash" class="text-white">-</strong></div>
+              <div class="d-flex justify-content-between"><span>Solicitud</span><strong id="monitorVerify" class="text-white">-</strong></div>
+              <div class="d-flex justify-content-between"><span>Capturas</span><strong id="monitorCaptures" class="text-white">-</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-4"><div class="card-custom text-center">
+          <div id="monitorFrames" style="font-size:2rem;font-weight:700;color:var(--accent);">-</div>
+          <div style="font-size:.78rem;color:#6e7681;">Frames transmitidos</div>
+        </div></div>
+        <div class="col-md-4"><div class="card-custom text-center">
+          <div id="monitorRequestId" style="font-size:2rem;font-weight:700;color:#00b4ff;">-</div>
+          <div style="font-size:.78rem;color:#6e7681;">Request ID</div>
+        </div></div>
+        <div class="col-md-4"><div class="card-custom text-center">
+          <div id="monitorFirmware" style="font-size:1.05rem;font-weight:700;color:var(--accent-yellow);padding-top:8px;">-</div>
+          <div style="font-size:.78rem;color:#6e7681;">Firmware</div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: PERSONAS ══════ -->
+    <div class="page" id="page-personas">
+      <div class="page-header d-flex align-items-start justify-content-between">
+        <div>
+          <h1>Personas Autorizadas</h1>
+          <p>Monitorea el personal autorizado y gestiona la clasificación de identidades en todos los nodos</p>
+        </div>
+        <button class="btn btn-accent px-3 mt-1" style="font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#modalPersona">
+          <i class="bi bi-person-plus me-2"></i>Agregar Persona
+        </button>
+      </div>
+
+      <!-- Search -->
+      <div class="mb-4 d-flex gap-2">
+        <input type="text" class="form-control" style="max-width:280px;" placeholder="🔍  Buscar persona..."/>
+        <select class="form-select" style="max-width:160px;">
+          <option>Todos los roles</option>
+          <option>Empleado</option>
+          <option>Administrador</option>
+          <option>Visitante</option>
+        </select>
+        <select class="form-select" style="max-width:140px;">
+          <option>Todos</option>
+          <option>Activos</option>
+          <option>Inactivos</option>
+        </select>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar">JG</div>
+            <div class="person-name">Persona real</div>
+            <div class="person-rol">Administrador</div>
+            <span class="person-badge badge-active">Activo</span>
+            <div style="font-size:.7rem;color:#6e7681;">3 fotos · 47 accesos</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar" style="background:linear-gradient(135deg,#6f42c1,#00b4ff)">ML</div>
+            <div class="person-name">Persona real</div>
+            <div class="person-rol">Empleado</div>
+            <span class="person-badge badge-active">Activo</span>
+            <div style="font-size:.7rem;color:#6e7681;">5 fotos · 31 accesos</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar" style="background:linear-gradient(135deg,#fd7e14,#ffc107)">CR</div>
+            <div class="person-name">Persona real</div>
+            <div class="person-rol">Empleado</div>
+            <span class="person-badge badge-active">Activo</span>
+            <div style="font-size:.7rem;color:#6e7681;">2 fotos · 22 accesos</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar" style="background:linear-gradient(135deg,#20c997,#0dcaf0)">AP</div>
+            <div class="person-name">Persona real</div>
+            <div class="person-rol">Empleado</div>
+            <span class="person-badge badge-active">Activo</span>
+            <div style="font-size:.7rem;color:#6e7681;">4 fotos · 18 accesos</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar" style="background:linear-gradient(135deg,#e83e8c,#fd7e14)">LM</div>
+            <div class="person-name">Persona real</div>
+            <div class="person-rol">Visitante</div>
+            <span class="person-badge badge-active">Activo</span>
+            <div style="font-size:.7rem;color:#6e7681;">2 fotos · 5 accesos</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card">
+            <div class="person-avatar" style="background:linear-gradient(135deg,#6c757d,#495057)">ST</div>
+            <div class="person-name">Sofia Torres</div>
+            <div class="person-rol">Empleado</div>
+            <span class="person-badge badge-inactive">Inactivo</span>
+            <div style="font-size:.7rem;color:#6e7681;">3 fotos · 9 accesos</div>
+          </div>
+        </div>
+        <!-- Add new card -->
+        <div class="col-6 col-md-4 col-xl-3">
+          <div class="person-card" style="border-style:dashed;color:#6e7681;justify-content:center;" data-bs-toggle="modal" data-bs-target="#modalPersona">
+            <i class="bi bi-plus-circle" style="font-size:2rem;"></i>
+            <div style="font-size:.85rem;">Agregar Persona</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: IMÁGENES ══════ -->
+    <div class="page" id="page-imagenes">
+      <div class="page-header d-flex align-items-start justify-content-between">
+        <div>
+          <h1>Base de Imágenes</h1>
+          <p>Gestión de imágenes de entrenamiento para reconocimiento facial con DeepFace</p>
+        </div>
+        <button class="btn btn-accent px-3 mt-1" style="font-size:.82rem;"><i class="bi bi-cloud-upload me-2"></i>Subir Fotos</button>
+      </div>
+
+      <div class="mb-3 d-flex gap-2">
+        <select class="form-select" style="max-width:220px;">
+          <option>— Seleccionar persona —</option>
+          <option>Persona real</option>
+          <option>Persona real</option>
+          <option>Persona real</option>
+        </select>
+      </div>
+
+      <div class="card-custom">
+        <div class="d-flex justify-content-between mb-3">
+          <div><span class="text-white fw-semibold">Persona real</span> <span style="font-size:.75rem;color:#6e7681;margin-left:8px;">3 imágenes · Última: hoy</span></div>
+          <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;">+ Agregar fotos</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;">
+          <div style="aspect-ratio:1;background:#0d1117;border-radius:8px;border:1px solid var(--border-color);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#3d444d;gap:4px;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent-red)'" onmouseout="this.style.borderColor='var(--border-color)'">
+            <i class="bi bi-person-bounding-box" style="font-size:2rem;color:#6e7681;"></i>
+            <span style="font-size:.65rem;color:#6e7681;">foto_1.jpg</span>
+          </div>
+          <div style="aspect-ratio:1;background:#0d1117;border-radius:8px;border:1px solid var(--border-color);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#3d444d;gap:4px;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent-red)'" onmouseout="this.style.borderColor='var(--border-color)'">
+            <i class="bi bi-person-bounding-box" style="font-size:2rem;color:#6e7681;"></i>
+            <span style="font-size:.65rem;color:#6e7681;">foto_2.jpg</span>
+          </div>
+          <div style="aspect-ratio:1;background:#0d1117;border-radius:8px;border:1px solid var(--border-color);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#3d444d;gap:4px;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent-red)'" onmouseout="this.style.borderColor='var(--border-color)'">
+            <i class="bi bi-person-bounding-box" style="font-size:2rem;color:#6e7681;"></i>
+            <span style="font-size:.65rem;color:#6e7681;">foto_3.jpg</span>
+          </div>
+          <div style="aspect-ratio:1;background:#0d1117;border-radius:8px;border:1px dashed #21262d;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#3d444d;gap:4px;cursor:pointer;">
+            <i class="bi bi-plus-lg" style="font-size:1.5rem;color:#6e7681;"></i>
+            <span style="font-size:.65rem;color:#6e7681;">Agregar</span>
+          </div>
+        </div>
+        <div class="mt-3 p-2" style="background:#0d1117;border-radius:8px;font-size:.75rem;color:#6e7681;">
+          <i class="bi bi-info-circle me-1"></i> Recomendado: mínimo 3 fotos con diferente iluminación y ángulo para mejor reconocimiento.
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: HORARIOS ══════ -->
+    <div class="page" id="page-horarios">
+      <div class="page-header d-flex align-items-start justify-content-between">
+        <div>
+          <h1>Configuración de Horarios</h1>
+          <p>Define ventanas de tiempo permitidas para el personal autorizado</p>
+        </div>
+        <button class="btn btn-accent px-3 mt-1" style="font-size:.82rem;"><i class="bi bi-plus-lg me-2"></i>+ Nuevo Horario</button>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-5">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Seleccionar Persona</h6>
+            <div class="d-flex flex-column gap-2">
+              <div class="d-flex align-items-center gap-3 p-2 rounded" style="background:#0d1117;cursor:pointer;border:1px solid var(--accent);">
+                <div class="avatar" style="width:32px;height:32px;font-size:.8rem;">JG</div>
+                <div><div style="font-size:.85rem;font-weight:600;color:#fff;">Persona real</div><div style="font-size:.7rem;color:var(--accent);">Horario configurado</div></div>
+                <i class="bi bi-chevron-right ms-auto" style="color:#6e7681;"></i>
+              </div>
+              <div class="d-flex align-items-center gap-3 p-2 rounded" style="background:#0d1117;cursor:pointer;">
+                <div class="avatar" style="width:32px;height:32px;font-size:.8rem;background:linear-gradient(135deg,#6f42c1,#00b4ff)">ML</div>
+                <div><div style="font-size:.85rem;font-weight:600;color:#fff;">Persona real</div><div style="font-size:.7rem;color:var(--accent);">Horario configurado</div></div>
+                <i class="bi bi-chevron-right ms-auto" style="color:#6e7681;"></i>
+              </div>
+              <div class="d-flex align-items-center gap-3 p-2 rounded" style="background:#0d1117;cursor:pointer;">
+                <div class="avatar" style="width:32px;height:32px;font-size:.8rem;background:linear-gradient(135deg,#fd7e14,#ffc107)">CR</div>
+                <div><div style="font-size:.85rem;font-weight:600;color:#fff;">Persona real</div><div style="font-size:.7rem;color:#6e7681;">Sin horario (acceso libre)</div></div>
+                <i class="bi bi-chevron-right ms-auto" style="color:#6e7681;"></i>
+              </div>
+              <div class="d-flex align-items-center gap-3 p-2 rounded" style="background:#0d1117;cursor:pointer;">
+                <div class="avatar" style="width:32px;height:32px;font-size:.8rem;background:linear-gradient(135deg,#20c997,#0dcaf0)">AP</div>
+                <div><div style="font-size:.85rem;font-weight:600;color:#fff;">Persona real</div><div style="font-size:.7rem;color:var(--accent);">Horario configurado</div></div>
+                <i class="bi bi-chevron-right ms-auto" style="color:#6e7681;"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="card-custom">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-semibold text-white mb-0">Horario — Persona real</h6>
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" checked style="cursor:pointer;">
+                <label class="form-check-label" style="font-size:.8rem;color:#8b949e;">Activo</label>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <div style="font-size:.78rem;color:#6e7681;margin-bottom:10px;font-weight:600;">DÍAS PERMITIDOS</div>
+              <div class="d-flex gap-2">
+                <div class="day-pill active">Lu</div>
+                <div class="day-pill active">Ma</div>
+                <div class="day-pill active">Mi</div>
+                <div class="day-pill active">Ju</div>
+                <div class="day-pill active">Vi</div>
+                <div class="day-pill">Sa</div>
+                <div class="day-pill">Do</div>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+              <div class="col-6">
+                <label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">HORA ENTRADA</label>
+                <input type="time" class="form-control" value="08:00"/>
+              </div>
+              <div class="col-6">
+                <label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">HORA SALIDA</label>
+                <input type="time" class="form-control" value="18:00"/>
+              </div>
+            </div>
+
+            <div class="p-3 rounded mb-4" style="background:#0d1117;border:1px solid var(--border-color);">
+              <div style="font-size:.75rem;color:#6e7681;margin-bottom:4px;font-weight:600;">RESUMEN</div>
+              <div style="font-size:.82rem;color:#c9d1d9;">Lunes a Viernes · 08:00 — 18:00</div>
+              <div style="font-size:.72rem;color:var(--accent);margin-top:4px;">✓ Actualmente dentro de horario</div>
+            </div>
+
+            <button class="btn btn-accent w-100">Guardar Horario</button>
+          </div>
+
+          <!-- Mini calendario de horas -->
+          <div class="card-custom mt-3">
+            <h6 class="fw-semibold text-white mb-1">Vista semanal del horario</h6>
+            <div style="font-size:.72rem;color:#6e7681;margin-bottom:12px;">Verde = horario permitido · Gris = bloqueado</div>
+            <div style="overflow-x:auto;">
+              <table style="width:100%;border-collapse:collapse;font-size:.65rem;">
+                <thead>
+                  <tr>
+                    <th style="color:#6e7681;padding:4px 6px;text-align:left;width:36px;"></th>
+                    <script>
+                      const dias=['Lu','Ma','Mi','Ju','Vi','Sa','Do'];
+                      const activos=[true,true,true,true,true,false,false];
+                      dias.forEach((d,i)=>document.write(`<th style="text-align:center;padding:4px 3px;color:${activos[i]?'#fff':'#3d444d'};font-weight:${activos[i]?700:400};">${d}</th>`));
+                    </script>
+                  </tr>
+                </thead>
+                <tbody id="horaCalBody"></tbody>
+              </table>
+            </div>
+            <div class="d-flex gap-3 mt-2" style="font-size:.7rem;color:#6e7681;">
+              <span><span style="display:inline-block;width:10px;height:10px;background:rgba(0,229,160,.6);border-radius:2px;margin-right:4px;"></span>Permitido</span>
+              <span><span style="display:inline-block;width:10px;height:10px;background:#21262d;border-radius:2px;margin-right:4px;"></span>Bloqueado</span>
+              <span><span style="display:inline-block;width:10px;height:10px;background:rgba(0,180,255,.5);border-radius:2px;margin-right:4px;"></span>Ahora</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: HISTORIAL ══════ -->
+    <div class="page" id="page-historial">
+      <div class="page-header d-flex align-items-start justify-content-between">
+        <div>
+          <h1>Historial de Accesos</h1>
+          <p>52 registros en total · Todos los eventos biométricos registrados</p>
+        </div>
+        <button class="btn btn-sm mt-1" style="background:var(--bg-card);border:1px solid var(--border-color);color:#94a3b8;border-radius:8px;font-size:.8rem;padding:8px 16px;"><i class="bi bi-download me-2"></i>Exportar CSV</button>
+      </div>
+
+      <div class="d-flex gap-2 mb-3 flex-wrap">
+        <input type="date" class="form-control" style="max-width:160px;" value="2025-06-18"/>
+        <input type="date" class="form-control" style="max-width:160px;" value="2025-06-18"/>
+        <select class="form-select" style="max-width:150px;"><option>Todas</option><option>Permitido</option><option>Denegado</option></select>
+        <select class="form-select" style="max-width:180px;"><option>Todas las personas</option><option>Persona real</option><option>Persona real</option></select>
+        <button class="btn btn-accent px-3">Filtrar</button>
+      </div>
+
+      <div class="card-custom">
+        <table class="table table-custom mb-0">
+          <thead><tr>
+            <th>#</th><th>Persona</th><th>Fecha/Hora</th><th>Score</th><th>Distancia</th><th>Frames</th><th>Decisión</th><th>Motivo</th>
+          </tr></thead>
+          <tbody>
+            <tr><td style="color:#6e7681">52</td><td><div class="d-flex align-items-center gap-2"><div class="avatar">JG</div>Persona real</div></td><td style="color:#8b949e">2025-06-18 14:32</td><td style="color:var(--accent)">0.84</td><td>0.41</td><td>4/5</td><td><span class="badge-permit">PERMITIDO</span></td><td style="font-size:.72rem;color:#6e7681;">4 frames apoyan</td></tr>
+            <tr><td style="color:#6e7681">51</td><td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#ff4c6a,#ff8c00)">?</div><span style="color:#8b949e">Desconocido</span></div></td><td style="color:#8b949e">2025-06-18 14:28</td><td style="color:var(--accent-red)">0.21</td><td>—</td><td>2/5</td><td><span class="badge-deny">DENEGADO</span></td><td style="font-size:.72rem;color:#6e7681;">sin_matches_validos</td></tr>
+            <tr><td style="color:#6e7681">50</td><td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#6f42c1,#00b4ff)">ML</div>Persona real</div></td><td style="color:#8b949e">2025-06-18 14:15</td><td style="color:var(--accent)">0.91</td><td>0.32</td><td>5/5</td><td><span class="badge-permit">PERMITIDO</span></td><td style="font-size:.72rem;color:#6e7681;">5 frames apoyan</td></tr>
+            <tr><td style="color:#6e7681">49</td><td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#fd7e14,#ffc107)">CR</div>Persona real</div></td><td style="color:#8b949e">2025-06-18 13:58</td><td style="color:var(--accent-yellow)">0.61</td><td>0.55</td><td>3/5</td><td><span class="badge-permit">PERMITIDO</span></td><td style="font-size:.72rem;color:#6e7681;">3 frames apoyan</td></tr>
+            <tr><td style="color:#6e7681">48</td><td><div class="d-flex align-items-center gap-2"><div class="avatar" style="background:linear-gradient(135deg,#ff4c6a,#ff8c00)">?</div><span style="color:#8b949e">Desconocido</span></div></td><td style="color:#8b949e">2025-06-18 13:44</td><td style="color:var(--accent-red)">0.18</td><td>—</td><td>1/5</td><td><span class="badge-deny">DENEGADO</span></td><td style="font-size:.72rem;color:#6e7681;">pocos_frames_validos</td></tr>
+            <tr><td style="color:#6e7681">47</td><td><div class="d-flex align-items-center gap-2"><div class="avatar">JG</div>Persona real</div></td><td style="color:#8b949e">2025-06-18 09:01</td><td style="color:var(--accent)">0.88</td><td>0.38</td><td>5/5</td><td><span class="badge-permit">PERMITIDO</span></td><td style="font-size:.72rem;color:#6e7681;">5 frames apoyan</td></tr>
+          </tbody>
+        </table>
+        <div class="d-flex justify-content-between align-items-center mt-3" style="font-size:.78rem;color:#6e7681;">
+          <span>Mostrando 1–6 de 52 registros</span>
+          <div class="d-flex gap-1">
+            <button class="btn btn-sm" style="background:var(--bg-dark);border:1px solid var(--border-color);color:#8b949e;border-radius:6px;">‹</button>
+            <button class="btn btn-sm" style="background:var(--accent);border:none;color:#000;border-radius:6px;font-weight:700;">1</button>
+            <button class="btn btn-sm" style="background:var(--bg-dark);border:1px solid var(--border-color);color:#8b949e;border-radius:6px;">2</button>
+            <button class="btn btn-sm" style="background:var(--bg-dark);border:1px solid var(--border-color);color:#8b949e;border-radius:6px;">›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: DESCONOCIDOS ══════ -->
+    <div class="page" id="page-desconocidos">
+      <div class="page-header">
+        <h1>Rostros Desconocidos</h1>
+        <p>3 eventos pendientes de revisión · Toma acción o descarta cada detección</p>
+      </div>
+      <div class="alert" style="background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.3);color:var(--accent-yellow);border-radius:10px;font-size:.83rem;">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Estos rostros no fueron reconocidos. Puedes darles <strong>acceso temporal</strong> y solicitar que se registren, o descartar el evento.
+      </div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="unknown-card">
+            <div class="unknown-thumb" style="position:relative;">
+              <i class="bi bi-person-fill-exclamation"></i>
+              <div style="position:absolute;top:8px;right:8px;background:rgba(255,193,7,.2);color:var(--accent-yellow);font-size:.65rem;padding:2px 8px;border-radius:4px;font-weight:700;">PENDIENTE</div>
+            </div>
+            <div class="p-3">
+              <div style="font-size:.72rem;color:#6e7681;">2025-06-18 14:28:51 · Score: 0.21</div>
+              <div style="font-size:.78rem;color:#c9d1d9;margin-top:4px;">Sin match · 2/5 frames válidos</div>
+              <div class="unknown-actions px-0 flex-column gap-2">
+                <button class="btn btn-sm btn-accent w-100" data-bs-toggle="modal" data-bs-target="#modalAccesoTemporal" onclick="setUnknownData('14:28:51')">
+                  <i class="bi bi-door-open me-1"></i>Acceso temporal + Registrar
+                </button>
+                <div class="d-flex gap-1 w-100">
+                  <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.72rem;" data-bs-toggle="modal" data-bs-target="#modalPersona">Solo registrar</button>
+                  <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.12);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;font-size:.72rem;">Descartar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="unknown-card">
+            <div class="unknown-thumb" style="position:relative;">
+              <i class="bi bi-person-fill-exclamation"></i>
+              <div style="position:absolute;top:8px;right:8px;background:rgba(255,193,7,.2);color:var(--accent-yellow);font-size:.65rem;padding:2px 8px;border-radius:4px;font-weight:700;">PENDIENTE</div>
+            </div>
+            <div class="p-3">
+              <div style="font-size:.72rem;color:#6e7681;">2025-06-18 13:44:09 · Score: 0.18</div>
+              <div style="font-size:.78rem;color:#c9d1d9;margin-top:4px;">Sin match · 1/5 frames válidos</div>
+              <div class="unknown-actions px-0 flex-column gap-2">
+                <button class="btn btn-sm btn-accent w-100" data-bs-toggle="modal" data-bs-target="#modalAccesoTemporal" onclick="setUnknownData('13:44:09')">
+                  <i class="bi bi-door-open me-1"></i>Acceso temporal + Registrar
+                </button>
+                <div class="d-flex gap-1 w-100">
+                  <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.72rem;" data-bs-toggle="modal" data-bs-target="#modalPersona">Solo registrar</button>
+                  <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.12);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;font-size:.72rem;">Descartar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="unknown-card">
+            <div class="unknown-thumb" style="position:relative;">
+              <i class="bi bi-person-fill-exclamation"></i>
+              <div style="position:absolute;top:8px;right:8px;background:rgba(255,193,7,.2);color:var(--accent-yellow);font-size:.65rem;padding:2px 8px;border-radius:4px;font-weight:700;">PENDIENTE</div>
+            </div>
+            <div class="p-3">
+              <div style="font-size:.72rem;color:#6e7681;">2025-06-17 09:12:35 · Score: 0.30</div>
+              <div style="font-size:.78rem;color:#c9d1d9;margin-top:4px;">Sin match · 3/5 frames válidos</div>
+              <div class="unknown-actions px-0 flex-column gap-2">
+                <button class="btn btn-sm btn-accent w-100" data-bs-toggle="modal" data-bs-target="#modalAccesoTemporal" onclick="setUnknownData('09:12:35')">
+                  <i class="bi bi-door-open me-1"></i>Acceso temporal + Registrar
+                </button>
+                <div class="d-flex gap-1 w-100">
+                  <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.72rem;" data-bs-toggle="modal" data-bs-target="#modalPersona">Solo registrar</button>
+                  <button class="btn btn-sm flex-fill" style="background:rgba(255,76,106,.12);color:var(--accent-red);border:1px solid rgba(255,76,106,.3);border-radius:7px;font-size:.72rem;">Descartar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: ALERTAS ══════ -->
+    <div class="page" id="page-alertas">
+      <div class="page-header d-flex align-items-start justify-content-between">
+        <div>
+          <h1>Alertas del Sistema</h1>
+          <p>5 alertas activas · 3 no leídas · Monitoreo en tiempo real</p>
+        </div>
+        <button class="btn btn-sm mt-1" style="background:var(--bg-card);border:1px solid var(--border-color);color:#94a3b8;border-radius:8px;font-size:.8rem;padding:8px 16px;">Marcar todas como leídas</button>
+      </div>
+      <div class="card-custom">
+        <div class="alert-row">
+          <div class="alert-icon-wrap" style="background:rgba(255,76,106,.12);color:var(--accent-red);"><i class="bi bi-shield-fill-exclamation"></i></div>
+          <div class="flex-grow-1">
+            <div style="font-size:.85rem;font-weight:600;color:#fff;">Acceso denegado reiteradamente</div>
+            <div style="font-size:.75rem;color:#6e7681;">Mismo rostro desconocido en 3 intentos consecutivos · hace 1h</div>
+          </div>
+          <span style="font-size:.65rem;background:rgba(255,76,106,.15);color:var(--accent-red);padding:2px 8px;border-radius:10px;">Nueva</span>
+        </div>
+        <div class="alert-row">
+          <div class="alert-icon-wrap" style="background:rgba(255,193,7,.12);color:var(--accent-yellow);"><i class="bi bi-person-fill-exclamation"></i></div>
+          <div class="flex-grow-1">
+            <div style="font-size:.85rem;font-weight:600;color:#fff;">3 desconocidos pendientes de revisión</div>
+            <div style="font-size:.75rem;color:#6e7681;">Requieren aprobación o descarte · hace 2h</div>
+          </div>
+          <span style="font-size:.65rem;background:rgba(255,193,7,.15);color:var(--accent-yellow);padding:2px 8px;border-radius:10px;">Nueva</span>
+        </div>
+        <div class="alert-row">
+          <div class="alert-icon-wrap" style="background:rgba(0,229,160,.12);color:var(--accent);"><i class="bi bi-person-plus-fill"></i></div>
+          <div class="flex-grow-1">
+            <div style="font-size:.85rem;font-weight:600;color:#fff;">Nueva persona registrada</div>
+            <div style="font-size:.75rem;color:#6e7681;">Persona real fue agregado al sistema · hace 3h</div>
+          </div>
+          <span style="font-size:.65rem;background:rgba(0,229,160,.15);color:var(--accent);padding:2px 8px;border-radius:10px;">Nueva</span>
+        </div>
+        <div class="alert-row" style="opacity:.55;">
+          <div class="alert-icon-wrap" style="background:#21262d;color:#6e7681;"><i class="bi bi-wifi-off"></i></div>
+          <div class="flex-grow-1">
+            <div style="font-size:.85rem;font-weight:600;">ESP32 sin respuesta</div>
+            <div style="font-size:.75rem;color:#6e7681;">Desconexión de 12s · ayer 22:14</div>
+          </div>
+          <span style="font-size:.65rem;color:#6e7681;">Leída</span>
+        </div>
+        <div class="alert-row" style="opacity:.55;">
+          <div class="alert-icon-wrap" style="background:#21262d;color:#6e7681;"><i class="bi bi-clock-history"></i></div>
+          <div class="flex-grow-1">
+            <div style="font-size:.85rem;font-weight:600;">Acceso fuera de horario bloqueado</div>
+            <div style="font-size:.75rem;color:#6e7681;">Persona real intentó acceso sábado a las 10:30 · ayer</div>
+          </div>
+          <span style="font-size:.65rem;color:#6e7681;">Leída</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: ESTADÍSTICAS ══════ -->
+    <div class="page" id="page-estadisticas">
+      <div class="page-header d-flex align-items-start justify-content-between">
+        <div>
+          <h1>Análisis de Operaciones</h1>
+          <p>Inteligencia de acceso y auditoría de eventos en tiempo real</p>
+        </div>
+        <div class="d-flex gap-2 mt-1">
+          <button class="btn btn-sm" style="background:var(--bg-card);border:1px solid var(--border-color);color:#94a3b8;border-radius:8px;font-size:.8rem;padding:7px 14px;"><i class="bi bi-calendar3 me-2"></i>Últimos 30 días</button>
+          <button class="btn btn-accent px-3" style="font-size:.82rem;"><i class="bi bi-download me-2"></i>Exportar Reporte</button>
+        </div>
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-lg-8">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Accesos por día (últimos 7 días)</h6>
+            <div class="chart-wrap" style="height:240px;"><canvas id="chartSemana"></canvas></div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Decisiones (este mes)</h6>
+            <div class="chart-wrap" style="height:200px;"><canvas id="chartDecision"></canvas></div>
+            <div class="d-flex justify-content-around mt-3">
+              <div class="text-center"><div style="font-size:1.3rem;font-weight:700;color:var(--accent);">87%</div><div style="font-size:.7rem;color:#6e7681;">Permitidos</div></div>
+              <div class="text-center"><div style="font-size:1.3rem;font-weight:700;color:var(--accent-red);">13%</div><div style="font-size:.7rem;color:#6e7681;">Denegados</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Top personas por accesos</h6>
+            <div class="d-flex flex-column gap-3">
+              <div><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;">Persona real</span><span style="font-size:.78rem;color:#6e7681;">47</span></div><div style="height:6px;background:#21262d;border-radius:3px;"><div style="width:100%;height:100%;background:var(--accent);border-radius:3px;"></div></div></div>
+              <div><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;">Persona real</span><span style="font-size:.78rem;color:#6e7681;">31</span></div><div style="height:6px;background:#21262d;border-radius:3px;"><div style="width:66%;height:100%;background:#00b4ff;border-radius:3px;"></div></div></div>
+              <div><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;">Persona real</span><span style="font-size:.78rem;color:#6e7681;">22</span></div><div style="height:6px;background:#21262d;border-radius:3px;"><div style="width:47%;height:100%;background:var(--accent-yellow);border-radius:3px;"></div></div></div>
+              <div><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;">Persona real</span><span style="font-size:.78rem;color:#6e7681;">18</span></div><div style="height:6px;background:#21262d;border-radius:3px;"><div style="width:38%;height:100%;background:#e83e8c;border-radius:3px;"></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Accesos por hora del día</h6>
+            <div class="chart-wrap" style="height:160px;"><canvas id="chartHeatmap"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: REPORTES ══════ -->
+    <div class="page" id="page-reportes">
+      <div class="page-header d-flex align-items-start justify-content-between">
+        <div>
+          <h1>Centro de Reportes</h1>
+          <p>Generación y análisis de datos de acceso biométrico</p>
+        </div>
+        <button class="btn btn-sm mt-1" style="background:var(--bg-card);border:1px solid var(--border-color);color:#94a3b8;border-radius:8px;font-size:.8rem;padding:8px 16px;"><i class="bi bi-arrow-clockwise me-2"></i>Actualizar</button>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-1">Generar Reporte</h6>
+            <div style="font-size:.78rem;color:#6e7681;margin-bottom:16px;">Exporta los datos del sistema en el rango que necesites</div>
+            <div class="mb-3">
+              <label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">TIPO DE REPORTE</label>
+              <select class="form-select">
+                <option>Historial de accesos completo</option>
+                <option>Accesos por persona</option>
+                <option>Accesos denegados</option>
+                <option>Actividad por horario</option>
+                <option>Resumen mensual</option>
+              </select>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">DESDE</label><input type="date" class="form-control" value="2025-06-01"/></div>
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">HASTA</label><input type="date" class="form-control" value="2025-06-18"/></div>
+            </div>
+            <div class="mb-3">
+              <label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">FORMATO</label>
+              <div class="d-flex gap-2">
+                <div class="flex-fill p-2 text-center rounded" style="background:rgba(0,229,160,.12);border:1px solid var(--accent);cursor:pointer;font-size:.82rem;color:var(--accent);font-weight:600;">CSV</div>
+                <div class="flex-fill p-2 text-center rounded" style="background:#0d1117;border:1px solid var(--border-color);cursor:pointer;font-size:.82rem;color:#6e7681;">PDF</div>
+                <div class="flex-fill p-2 text-center rounded" style="background:#0d1117;border:1px solid var(--border-color);cursor:pointer;font-size:.82rem;color:#6e7681;">Excel</div>
+              </div>
+            </div>
+            <button class="btn btn-accent w-100"><i class="bi bi-download me-2"></i>Descargar Reporte</button>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Reportes Recientes</h6>
+            <div class="report-item">
+              <div class="report-icon" style="background:rgba(0,229,160,.1);color:var(--accent);"><i class="bi bi-file-earmark-spreadsheet"></i></div>
+              <div class="flex-grow-1"><div style="font-size:.85rem;font-weight:600;color:#fff;">Historial junio 2025</div><div style="font-size:.72rem;color:#6e7681;">CSV · 52 registros · hace 2 días</div></div>
+              <i class="bi bi-download" style="color:#6e7681;"></i>
+            </div>
+            <div class="report-item">
+              <div class="report-icon" style="background:rgba(0,180,255,.1);color:#00b4ff;"><i class="bi bi-file-earmark-pdf"></i></div>
+              <div class="flex-grow-1"><div style="font-size:.85rem;font-weight:600;color:#fff;">Resumen mayo 2025</div><div style="font-size:.72rem;color:#6e7681;">PDF · 31 días · hace 18 días</div></div>
+              <i class="bi bi-download" style="color:#6e7681;"></i>
+            </div>
+            <div class="report-item">
+              <div class="report-icon" style="background:rgba(255,193,7,.1);color:var(--accent-yellow);"><i class="bi bi-file-earmark-bar-graph"></i></div>
+              <div class="flex-grow-1"><div style="font-size:.85rem;font-weight:600;color:#fff;">Accesos denegados Q1</div><div style="font-size:.72rem;color:#6e7681;">Excel · 3 meses · hace 1 mes</div></div>
+              <i class="bi bi-download" style="color:#6e7681;"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: CONFIGURACIÓN ESP32 ══════ -->
+    <div class="page" id="page-configuracion">
+      <div class="page-header">
+        <h1>Configuración ESP32</h1>
+        <p>Parámetros del ESP32-CAM, umbrales de reconocimiento y conexión de red</p>
+      </div>
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card-custom mb-3">
+            <h6 class="fw-semibold text-white mb-3">Conexión</h6>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">IP DEL ESP32-CAM</label><input type="text" class="form-control" value="192.168.0.50"/></div>
+            <div class="row g-2 mb-3">
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">TIMEOUT STATUS (s)</label><input type="number" class="form-control" value="1.0" step="0.1"/></div>
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">TIMEOUT CAPTURA (s)</label><input type="number" class="form-control" value="4.0" step="0.1"/></div>
+            </div>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">INTERVALO POLLING (s)</label><input type="number" class="form-control" value="0.15" step="0.01"/></div>
+          </div>
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Captura</h6>
+            <div class="row g-2 mb-3">
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">FRAMES POR EVENTO</label><input type="number" class="form-control" value="5" min="1" max="10"/></div>
+              <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">CALIDAD JPEG (1-63)</label><input type="number" class="form-control" value="10" min="1" max="63"/></div>
+            </div>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">RESOLUCIÓN</label><select class="form-select"><option value="vga" selected>VGA (640×480)</option><option value="svga">SVGA (800×600)</option><option value="xga">XGA (1024×768)</option><option value="qvga">QVGA (320×240) — más rápida</option></select></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" checked><label class="form-check-label" style="font-size:.83rem;">Decisión temprana (Early Grant)</label></div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card-custom mb-3">
+            <h6 class="fw-semibold text-white mb-3">Umbrales de Reconocimiento</h6>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">DISTANCIA MÁXIMA (0–1)</label><input type="range" class="form-range" min="0" max="1" step="0.01" value="0.68" oninput="this.nextElementSibling.textContent=this.value"/><div style="font-size:.85rem;color:var(--accent);font-weight:600;">0.68</div></div>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">SCORE MÍNIMO (0–1)</label><input type="range" class="form-range" min="0" max="1" step="0.01" value="0.20" oninput="this.nextElementSibling.textContent=this.value"/><div style="font-size:.85rem;color:var(--accent);font-weight:600;">0.20</div></div>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">BLUR MÍNIMO</label><input type="number" class="form-control" value="20.0" step="1"/></div>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">FRAMES MÍNIMOS VÁLIDOS</label><input type="number" class="form-control" value="1" min="1"/></div>
+          </div>
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Alertas por Email</h6>
+            <div class="mb-3"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">EMAIL DE NOTIFICACIONES</label><input type="email" class="form-control" placeholder="admin@empresa.com"/></div>
+            <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" checked><label class="form-check-label" style="font-size:.83rem;">Alertar en acceso denegado</label></div>
+            <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" checked><label class="form-check-label" style="font-size:.83rem;">Alertar si ESP32 se desconecta</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:.83rem;">Reporte diario automático</label></div>
+          </div>
+          <button class="btn btn-accent w-100 mt-3">Guardar Configuración</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: SISTEMA ══════ -->
+    <div class="page" id="page-sistema">
+      <div class="page-header">
+        <h1>Estado del Sistema</h1>
+        <p>Monitor de recursos, conectividad y salud del servidor en tiempo real</p>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card-custom mb-3">
+            <h6 class="fw-semibold text-white mb-3">Reconocimiento</h6>
+            <div class="d-flex gap-3 mb-3">
+              <div class="p-3 rounded flex-fill text-center" style="background:#0d1117;border:1px solid var(--accent);">
+                <div class="status-dot dot-green" style="display:inline-block;"></div>
+                <div style="font-size:.82rem;color:var(--accent);font-weight:600;margin-top:4px;">Motor ACTIVO</div>
+                <div style="font-size:.7rem;color:#6e7681;">main.py corriendo</div>
+              </div>
+              <div class="p-3 rounded flex-fill text-center" style="background:#0d1117;border:1px solid var(--border-color);">
+                <div style="font-size:1.2rem;color:#fff;font-weight:700;">ArcFace</div>
+                <div style="font-size:.7rem;color:#6e7681;">Modelo cargado</div>
+              </div>
+            </div>
+            <div class="sys-metric"><span>Modelo</span><span style="color:var(--accent);">ArcFace + OpenCV</span></div>
+            <div class="sys-metric"><span>Cache embeddings</span><span style="color:#8b949e;">8 personas · 19 fotos</span></div>
+            <div class="sys-metric"><span>Última verificación</span><span style="color:#8b949e;">hace 4 segundos</span></div>
+            <div class="sys-metric"><span>Requests procesados hoy</span><span style="color:#8b949e;">52</span></div>
+          </div>
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Recursos del Servidor</h6>
+            <div class="sys-metric"><span>CPU</span><div class="d-flex align-items-center gap-2"><div class="metric-bar-wrap"><div class="metric-bar" style="width:23%;background:var(--accent);"></div></div><span style="color:#8b949e;font-size:.8rem;">23%</span></div></div>
+            <div class="sys-metric"><span>Memoria RAM</span><div class="d-flex align-items-center gap-2"><div class="metric-bar-wrap"><div class="metric-bar" style="width:61%;background:#00b4ff;"></div></div><span style="color:#8b949e;font-size:.8rem;">61%</span></div></div>
+            <div class="sys-metric"><span>Disco</span><div class="d-flex align-items-center gap-2"><div class="metric-bar-wrap"><div class="metric-bar" style="width:34%;background:var(--accent-yellow);"></div></div><span style="color:#8b949e;font-size:.8rem;">34%</span></div></div>
+            <div class="sys-metric"><span>Uptime</span><span style="color:#8b949e;">5h 42m</span></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card-custom mb-3">
+            <h6 class="fw-semibold text-white mb-3">ESP32-CAM</h6>
+            <div class="sys-metric"><span>Estado</span><span style="color:var(--accent);">● Conectado</span></div>
+            <div class="sys-metric"><span>IP</span><span style="color:#8b949e;">192.168.0.50</span></div>
+            <div class="sys-metric"><span>Ping promedio</span><span style="color:#8b949e;">12ms</span></div>
+            <div class="sys-metric"><span>Última respuesta</span><span style="color:#8b949e;">hace 4s</span></div>
+            <div class="sys-metric"><span>Errores de captura hoy</span><span style="color:var(--accent-yellow);">2</span></div>
+            <div class="sys-metric"><span>Tiempo promedio captura</span><span style="color:#8b949e;">312ms</span></div>
+          </div>
+          <div class="card-custom">
+            <h6 class="fw-semibold text-white mb-3">Base de Datos</h6>
+            <div class="sys-metric"><span>Motor</span><span style="color:#8b949e;">SQLite</span></div>
+            <div class="sys-metric"><span>Personas</span><span style="color:#8b949e;">8 registradas</span></div>
+            <div class="sys-metric"><span>Imágenes</span><span style="color:#8b949e;">19 fotos</span></div>
+            <div class="sys-metric"><span>Registros de acceso</span><span style="color:#8b949e;">52 entradas</span></div>
+            <div class="sys-metric"><span>Tamaño BD</span><span style="color:#8b949e;">1.2 MB</span></div>
+            <div class="mt-3 d-flex gap-2">
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.78rem;">Reconstruir Cache</button>
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.78rem;">Backup BD</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: MÚLTIPLES PUERTAS ══════ -->
+    <div class="page" id="page-puertas">
+      <div class="page-header d-flex align-items-start justify-content-between">
+        <div>
+          <h1>Múltiples Puertas</h1>
+          <p>Gestiona y monitorea cada punto de acceso independientemente</p>
+        </div>
+        <button class="btn btn-accent px-3 mt-1" style="font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#modalNuevaPuerta">
+          <i class="bi bi-plus-lg me-2"></i>Agregar Puerta
+        </button>
+      </div>
+
+      <!-- Mapa de puertas -->
+      <div class="row g-3 mb-4">
+        <!-- Puerta 1 -->
+        <div class="col-md-6 col-xl-4">
+          <div class="card-custom" style="border-color:rgba(0,229,160,.3);">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:48px;height:48px;background:rgba(0,229,160,.12);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🚪</div>
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:.95rem;">Puerta Principal</div>
+                  <div style="font-size:.7rem;color:#6e7681;">192.168.0.50 · Entrada principal</div>
+                </div>
+              </div>
+              <span style="font-size:.65rem;background:rgba(0,229,160,.15);color:var(--accent);padding:3px 9px;border-radius:10px;font-weight:700;">● CONECTADA</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+              <div style="background:#0d1117;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:700;color:var(--accent);">47</div>
+                <div style="font-size:.65rem;color:#6e7681;">Accesos hoy</div>
+              </div>
+              <div style="background:#0d1117;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:700;color:var(--accent-red);">5</div>
+                <div style="font-size:.65rem;color:#6e7681;">Denegados hoy</div>
+              </div>
+            </div>
+            <div style="font-size:.72rem;color:#6e7681;margin-bottom:10px;">Último acceso: <span style="color:#c9d1d9;">Persona real · hace 4 min</span></div>
+            <div style="font-size:.72rem;color:#6e7681;margin-bottom:12px;">Ping: <span style="color:var(--accent);">12ms</span> · Relay: <span style="color:var(--accent);">Cerrado</span></div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm flex-fill btn-accent" style="font-size:.75rem;"><i class="bi bi-unlock me-1"></i>Abrir ahora</button>
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;"><i class="bi bi-gear me-1"></i>Config</button>
+            </div>
+          </div>
+        </div>
+        <!-- Puerta 2 -->
+        <div class="col-md-6 col-xl-4">
+          <div class="card-custom" style="border-color:rgba(0,180,255,.3);">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:48px;height:48px;background:rgba(0,180,255,.12);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🚪</div>
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:.95rem;">Puerta Trasera</div>
+                  <div style="font-size:.7rem;color:#6e7681;">192.168.0.51 · Salida bodega</div>
+                </div>
+              </div>
+              <span style="font-size:.65rem;background:rgba(0,180,255,.15);color:#00b4ff;padding:3px 9px;border-radius:10px;font-weight:700;">● CONECTADA</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+              <div style="background:#0d1117;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:700;color:#00b4ff;">18</div>
+                <div style="font-size:.65rem;color:#6e7681;">Accesos hoy</div>
+              </div>
+              <div style="background:#0d1117;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:700;color:var(--accent-red);">2</div>
+                <div style="font-size:.65rem;color:#6e7681;">Denegados hoy</div>
+              </div>
+            </div>
+            <div style="font-size:.72rem;color:#6e7681;margin-bottom:10px;">Último acceso: <span style="color:#c9d1d9;">Persona real · hace 22 min</span></div>
+            <div style="font-size:.72rem;color:#6e7681;margin-bottom:12px;">Ping: <span style="color:var(--accent);">18ms</span> · Relay: <span style="color:var(--accent);">Cerrado</span></div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm flex-fill" style="background:rgba(0,180,255,.12);color:#00b4ff;border:1px solid rgba(0,180,255,.3);border-radius:7px;font-size:.75rem;"><i class="bi bi-unlock me-1"></i>Abrir ahora</button>
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;"><i class="bi bi-gear me-1"></i>Config</button>
+            </div>
+          </div>
+        </div>
+        <!-- Puerta 3 — OFFLINE -->
+        <div class="col-md-6 col-xl-4">
+          <div class="card-custom" style="opacity:.7;border-color:rgba(255,76,106,.3);">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:48px;height:48px;background:rgba(255,76,106,.08);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🚪</div>
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:.95rem;">Oficinas 2° piso</div>
+                  <div style="font-size:.7rem;color:#6e7681;">192.168.0.52 · Acceso restringido</div>
+                </div>
+              </div>
+              <span style="font-size:.65rem;background:rgba(255,76,106,.15);color:var(--accent-red);padding:3px 9px;border-radius:10px;font-weight:700;">● OFFLINE</span>
+            </div>
+            <div class="p-3 rounded mb-3" style="background:rgba(255,76,106,.06);border:1px solid rgba(255,76,106,.2);text-align:center;">
+              <i class="bi bi-wifi-off" style="font-size:1.5rem;color:var(--accent-red);"></i>
+              <div style="font-size:.78rem;color:var(--accent-red);margin-top:6px;font-weight:600;">Sin respuesta desde hace 14 min</div>
+              <div style="font-size:.7rem;color:#6e7681;">Último ping fallido: 14:15:08</div>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;"><i class="bi bi-arrow-clockwise me-1"></i>Reconectar</button>
+              <button class="btn btn-sm flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.75rem;"><i class="bi bi-gear me-1"></i>Config</button>
+            </div>
+          </div>
+        </div>
+        <!-- Agregar nueva -->
+        <div class="col-md-6 col-xl-4">
+          <div class="card-custom d-flex flex-column align-items-center justify-content-center text-center" style="border-style:dashed;min-height:200px;cursor:pointer;color:#6e7681;" data-bs-toggle="modal" data-bs-target="#modalNuevaPuerta">
+            <i class="bi bi-plus-circle" style="font-size:2.2rem;margin-bottom:10px;"></i>
+            <div style="font-weight:600;font-size:.9rem;">Agregar nueva puerta</div>
+            <div style="font-size:.75rem;margin-top:4px;">Conecta otro ESP32-CAM</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla resumen -->
+      <div class="card-custom">
+        <h6 class="fw-semibold text-white mb-3">Resumen de actividad — Todas las puertas</h6>
+        <table class="table table-custom mb-0">
+          <thead><tr><th>Puerta</th><th>IP</th><th>Estado</th><th>Accesos hoy</th><th>Denegados</th><th>Último acceso</th><th>Ping</th><th>Acción</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span style="font-weight:600;color:#fff;">Puerta Principal</span></td>
+              <td style="color:#6e7681;font-family:monospace;">192.168.0.50</td>
+              <td><span class="badge-permit">ONLINE</span></td>
+              <td style="color:var(--accent);">47</td><td style="color:var(--accent-red);">5</td>
+              <td style="color:#8b949e;">hace 4 min</td>
+              <td style="color:var(--accent);">12ms</td>
+              <td><button class="btn btn-sm btn-accent" style="font-size:.7rem;padding:2px 10px;">Abrir</button></td>
+            </tr>
+            <tr>
+              <td><span style="font-weight:600;color:#fff;">Puerta Trasera</span></td>
+              <td style="color:#6e7681;font-family:monospace;">192.168.0.51</td>
+              <td><span class="badge-permit">ONLINE</span></td>
+              <td style="color:#00b4ff;">18</td><td style="color:var(--accent-red);">2</td>
+              <td style="color:#8b949e;">hace 22 min</td>
+              <td style="color:var(--accent);">18ms</td>
+              <td><button class="btn btn-sm" style="background:rgba(0,180,255,.12);color:#00b4ff;border:1px solid rgba(0,180,255,.3);border-radius:7px;font-size:.7rem;padding:2px 10px;">Abrir</button></td>
+            </tr>
+            <tr>
+              <td><span style="font-weight:600;color:#fff;">Oficinas 2° piso</span></td>
+              <td style="color:#6e7681;font-family:monospace;">192.168.0.52</td>
+              <td><span class="badge-deny">OFFLINE</span></td>
+              <td style="color:#6e7681;">—</td><td style="color:#6e7681;">—</td>
+              <td style="color:var(--accent-red);">hace 14 min</td>
+              <td style="color:var(--accent-red);">timeout</td>
+              <td><button class="btn btn-sm" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;font-size:.7rem;padding:2px 10px;">Reconectar</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ══════════════ MODAL: ACCESO TEMPORAL + REGISTRO ══════════════ -->
+<div class="modal fade" id="modalAccesoTemporal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;">
+      <div class="modal-header" style="border-color:var(--border-color);">
+        <div>
+          <h6 class="modal-title text-white fw-semibold mb-0">Acceso Temporal + Registro</h6>
+          <div style="font-size:.72rem;color:#6e7681;">Evento: <span id="unknownEventTime">—</span></div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Paso 1: Conceder acceso temporal -->
+        <div class="p-3 rounded mb-4" style="background:rgba(0,229,160,.07);border:1px solid rgba(0,229,160,.25);">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div style="width:38px;height:38px;background:rgba(0,229,160,.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🚪</div>
+            <div>
+              <div style="font-size:.85rem;font-weight:600;color:#fff;">Paso 1 — Abrir puerta ahora</div>
+              <div style="font-size:.72rem;color:#6e7681;">El relay se abrirá por el tiempo seleccionado</div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2 mt-2">
+            <label style="font-size:.78rem;color:#6e7681;white-space:nowrap;">Tiempo de acceso:</label>
+            <select class="form-select form-select-sm" style="max-width:140px;">
+              <option>5 segundos</option>
+              <option selected>10 segundos</option>
+              <option>30 segundos</option>
+              <option>1 minuto</option>
+            </select>
+            <button class="btn btn-sm btn-accent px-3"><i class="bi bi-unlock me-1"></i>Abrir</button>
+          </div>
+        </div>
+
+        <!-- Paso 2: Registro básico -->
+        <div style="font-size:.8rem;font-weight:600;color:#fff;margin-bottom:12px;">Paso 2 — Datos básicos de registro</div>
+        <div class="row g-3">
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOMBRE *</label><input type="text" class="form-control" placeholder="Nombre"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">APELLIDO *</label><input type="text" class="form-control" placeholder="Apellido"/></div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">ROL</label>
+            <select class="form-select"><option>Visitante temporal</option><option>Empleado</option><option>Proveedor</option><option>Administrador</option></select>
+          </div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">TELÉFONO</label><input type="tel" class="form-control" placeholder="+57 300 000 0000"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">ACCESO VÁLIDO HASTA</label><input type="date" class="form-control"/></div>
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" checked>
+              <label class="form-check-label" style="font-size:.83rem;">Usar el frame capturado como foto de registro</label>
+            </div>
+            <div class="mt-2 p-2 rounded d-flex align-items-center gap-3" style="background:#0d1117;border:1px solid var(--border-color);">
+              <div style="width:48px;height:48px;background:#161b22;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6e7681;font-size:1.4rem;"><i class="bi bi-person-bounding-box"></i></div>
+              <div>
+                <div style="font-size:.78rem;color:#c9d1d9;font-weight:600;">Frame capturado</div>
+                <div style="font-size:.68rem;color:#6e7681;">Se usará como imagen de entrenamiento inicial</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOTAS</label><textarea class="form-control" rows="2" placeholder="Motivo de la visita, autorizado por..."></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-color:var(--border-color);">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-accent px-4" data-bs-dismiss="modal"><i class="bi bi-person-check me-1"></i>Registrar como visitante temporal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: REGISTRAR DESDE FRAME (Monitor en Vivo) ══════════════ -->
+<div class="modal fade" id="modalRegistrarFrame" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;">
+      <div class="modal-header" style="border-color:var(--border-color);">
+        <div>
+          <h6 class="modal-title text-white fw-semibold mb-0">Registrar desde Monitor en Vivo</h6>
+          <div style="font-size:.72rem;color:#6e7681;">Frame: <span id="frameTimestamp">—</span> · Calidad: <span id="frameQuality">—</span></div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex gap-3 mb-4">
+          <!-- Frame preview -->
+          <div style="width:110px;height:110px;background:#0d1117;border-radius:10px;border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#6e7681;font-size:2.5rem;">
+            <i class="bi bi-person-bounding-box"></i>
+          </div>
+          <div>
+            <div style="font-size:.85rem;font-weight:600;color:#fff;margin-bottom:6px;">Frame capturado</div>
+            <div style="font-size:.75rem;color:#6e7681;line-height:1.6;">
+              Este frame se usará como la primera foto de entrenamiento de la persona.<br>
+              <span style="color:var(--accent-yellow);">⚠ Recomendado:</span> agrega más fotos después desde "Base de Imágenes" para mejor reconocimiento.
+            </div>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOMBRE *</label><input type="text" class="form-control" placeholder="Nombre"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">APELLIDO *</label><input type="text" class="form-control" placeholder="Apellido"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">ROL</label><select class="form-select"><option>Empleado</option><option>Administrador</option><option>Visitante</option></select></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">EMAIL</label><input type="email" class="form-control" placeholder="correo@empresa.com"/></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-color:var(--border-color);">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-accent px-4" data-bs-dismiss="modal"><i class="bi bi-person-plus me-1"></i>Registrar persona</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: NUEVA PUERTA ══════════════ -->
+<div class="modal fade" id="modalNuevaPuerta" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;">
+      <div class="modal-header" style="border-color:var(--border-color);">
+        <h6 class="modal-title text-white fw-semibold">Agregar Nueva Puerta</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOMBRE DE LA PUERTA *</label><input type="text" class="form-control" placeholder="Ej: Puerta Bodega, Entrada Lateral"/></div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">DESCRIPCIÓN</label><input type="text" class="form-control" placeholder="Ej: Acceso zona de carga"/></div>
+          <div class="col-8"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">IP DEL ESP32-CAM *</label><input type="text" class="form-control" placeholder="192.168.0.53"/></div>
+          <div class="col-4"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">PUERTO</label><input type="number" class="form-control" value="80"/></div>
+          <div class="col-12">
+            <label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">PERSONAS CON ACCESO</label>
+            <div class="d-flex flex-column gap-1">
+              <label style="font-size:.82rem;display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" checked> Persona real (Administrador)</label>
+              <label style="font-size:.82rem;display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" checked> Persona real (Empleado)</label>
+              <label style="font-size:.82rem;display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox"> Persona real (Empleado)</label>
+              <label style="font-size:.82rem;display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox"> Persona real (Empleado)</label>
+            </div>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-sm w-100" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:8px;">
+              <i class="bi bi-wifi me-2"></i>Probar conexión con ESP32
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-color:var(--border-color);">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-accent px-4" data-bs-dismiss="modal">Agregar Puerta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: AGREGAR PERSONA ══════════════ -->
+<div class="modal fade" id="modalPersona" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;">
+      <div class="modal-header" style="border-color:var(--border-color);">
+        <h6 class="modal-title text-white fw-semibold">Registrar Nueva Persona</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOMBRE *</label><input type="text" class="form-control" placeholder="Nombre"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">APELLIDO *</label><input type="text" class="form-control" placeholder="Apellido"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">EMAIL</label><input type="email" class="form-control" placeholder="juan@empresa.com"/></div>
+          <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">TELÉFONO</label><input type="tel" class="form-control" placeholder="+57 300 000 0000"/></div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">ROL</label>
+            <select class="form-select"><option>Empleado</option><option>Administrador</option><option>Visitante</option></select>
+          </div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">FOTOS (mínimo 1) *</label>
+            <div style="border:2px dashed var(--border-color);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-color)'">
+              <i class="bi bi-cloud-upload" style="font-size:2rem;color:#6e7681;"></i>
+              <div style="font-size:.83rem;color:#6e7681;margin-top:8px;">Arrastra fotos aquí o haz clic para seleccionar</div>
+              <div style="font-size:.7rem;color:#444;margin-top:4px;">JPG, PNG — Recomendado 3+ fotos</div>
+              <input type="file" multiple accept="image/*" style="display:none;">
+            </div>
+          </div>
+          <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOTAS</label><textarea class="form-control" rows="2" placeholder="Información adicional..."></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-color:var(--border-color);">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-accent px-4">Guardar y Procesar Fotos</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── NAVIGATION ──
+const pages = {
+  'inicio':        { title: 'Dashboard Principal',      subtitle: 'Resumen general del sistema · Actualizado hace 2s' },
+  'monitor':       { title: 'Monitor en Vivo',          subtitle: 'Capturas del ESP32-CAM en tiempo real' },
+  'personas':      { title: 'Personas Autorizadas',     subtitle: 'Gestión de usuarios con acceso al sistema' },
+  'imagenes':      { title: 'Base de Imágenes',         subtitle: 'Fotos de entrenamiento por persona' },
+  'horarios':      { title: 'Horarios de Acceso',       subtitle: 'Control de horarios por persona' },
+  'historial':     { title: 'Historial de Accesos',     subtitle: 'Todos los eventos registrados' },
+  'desconocidos':  { title: 'Rostros Desconocidos',     subtitle: 'Eventos sin identificación pendientes de revisión' },
+  'alertas':       { title: 'Alertas del Sistema',      subtitle: '5 alertas · 3 no leídas' },
+  'estadisticas':  { title: 'Estadísticas',             subtitle: 'Análisis de accesos y tendencias' },
+  'reportes':      { title: 'Reportes',                 subtitle: 'Exporta datos del sistema' },
+  'puertas':       { title: 'Múltiples Puertas',        subtitle: 'Monitorea y gestiona cada punto de acceso' },
+  'configuracion': { title: 'Configuración ESP32',      subtitle: 'Parámetros del hardware y reconocimiento' },
+  'sistema':       { title: 'Estado del Sistema',       subtitle: 'Monitor de recursos y conectividad' },
+};
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link-custom').forEach(b => b.classList.remove('active'));
+
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+
+  document.querySelectorAll('.nav-link-custom').forEach(b => {
+    if (b.getAttribute('onclick')?.includes("'" + id + "'")) b.classList.add('active');
+  });
+
+  const info = pages[id] || {};
+  const bc = document.getElementById('topbar-breadcrumb');
+  if (bc) bc.textContent = info.title || id;
+
+  if (id === 'estadisticas') setTimeout(initCharts, 50);
+  if (id === 'horarios')    setTimeout(buildHourCalendar, 60);
+  if (id === 'configuracion') setTimeout(setupNotificationsPanel, 50);
+}
+
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  const t = now.toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  const el = document.getElementById('clock');
+  if (el) el.textContent = t;
+  const el2 = document.getElementById('clock-inline');
+  if (el2) el2.textContent = t;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── CHARTS ──
+let chartsInited = false;
+function initCharts() {
+  if (chartsInited) return;
+  chartsInited = true;
+
+  const gridColor = '#1e3348';
+  const tickColor = '#64748b';
+  const defaults = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11, family: 'Inter' } } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11, family: 'Inter' } }, beginAtZero: true }
+    }
+  };
+
+  // Accesos por hora (inicio)
+  new Chart(document.getElementById('chartHora'), {
+    type: 'bar',
+    data: {
+      labels: ['7','8','9','10','11','12','13','14','15','16','17'],
+      datasets: [{ data: [1,4,7,5,3,6,8,11,5,3,2], backgroundColor: 'rgba(0,255,136,.55)', borderRadius: 5, borderSkipped: false }]
+    },
+    options: { ...defaults, plugins: { legend: { display: false } } }
+  });
+
+  // Semana
+  new Chart(document.getElementById('chartSemana'), {
+    type: 'line',
+    data: {
+      labels: ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],
+      datasets: [
+        { label:'Permitidos', data: [38,42,35,50,47,12,5], borderColor:'#00ff88', backgroundColor:'rgba(0,255,136,.07)', tension:.4, fill:true, pointRadius:4, pointBackgroundColor:'#00ff88', borderWidth:2 },
+        { label:'Denegados', data: [3,6,4,7,5,2,1], borderColor:'#ff4466', backgroundColor:'rgba(255,68,102,.05)', tension:.4, fill:true, pointRadius:4, pointBackgroundColor:'#ff4466', borderWidth:2 }
+      ]
+    },
+    options: { ...defaults, plugins: { legend: { display: true, labels: { color: '#8b949e', font: { size: 11 } } } } }
+  });
+
+  // Dona decisiones
+  new Chart(document.getElementById('chartDecision'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Permitidos','Denegados'],
+      datasets: [{ data: [87,13], backgroundColor: ['#00e5a0','#ff4c6a'], borderColor: '#161b22', borderWidth: 3 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '72%' }
+  });
+
+  // Heatmap hora del día
+  new Chart(document.getElementById('chartHeatmap'), {
+    type: 'bar',
+    data: {
+      labels: ['6','7','8','9','10','11','12','13','14','15','16','17','18'],
+      datasets: [{ data: [0,1,8,9,6,4,5,7,10,6,4,3,1], backgroundColor: 'rgba(0,180,255,.5)', borderRadius: 3 }]
+    },
+    options: { ...defaults }
+  });
+}
+
+// init home chart
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    new Chart(document.getElementById('chartHora'), {
+      type: 'bar',
+      data: {
+        labels: ['7','8','9','10','11','12','13','14','15','16','17'],
+        datasets: [{ data: [1,4,7,5,3,6,8,11,5,3,2], backgroundColor: 'rgba(0,229,160,.6)', borderRadius: 4 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#21262d' }, ticks: { color: '#6e7681', font: { size: 10 } } },
+          y: { grid: { color: '#21262d' }, ticks: { color: '#6e7681', font: { size: 10 } }, beginAtZero: true }
+        }
+      }
+    });
+  }, 100);
+});
+
+// ── Day pills toggle ──
+document.querySelectorAll('.day-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    pill.classList.toggle('active');
+    buildHourCalendar();
+  });
+});
+
+// ── Modal helpers ──
+function setFrameData(timestamp, quality) {
+  const el1 = document.getElementById('frameTimestamp');
+  const el2 = document.getElementById('frameQuality');
+  if (el1) el1.textContent = timestamp;
+  if (el2) el2.textContent = quality;
+}
+
+function setUnknownData(timestamp) {
+  const el = document.getElementById('unknownEventTime');
+  if (el) el.textContent = timestamp;
+}
+
+// ── Hour Calendar (horarios page) ──
+function buildHourCalendar() {
+  const body = document.getElementById('horaCalBody');
+  if (!body) return;
+
+  const pills = document.querySelectorAll('#page-horarios .day-pill');
+  const activeDays = Array.from(pills).map(p => p.classList.contains('active'));
+
+  const startEl = document.querySelector('#page-horarios input[type="time"]:first-of-type');
+  const endEl   = document.querySelector('#page-horarios input[type="time"]:last-of-type');
+  const startH  = startEl ? parseInt(startEl.value.split(':')[0]) : 8;
+  const endH    = endEl   ? parseInt(endEl.value.split(':')[0])   : 18;
+
+  const now = new Date();
+  const curH = now.getHours();
+  const curDay = now.getDay() === 0 ? 6 : now.getDay() - 1; // Mon=0
+
+  const hours = [];
+  for (let h = 6; h <= 22; h++) hours.push(h);
+
+  body.innerHTML = hours.map(h => {
+    const timeLabel = `${String(h).padStart(2,'0')}:00`;
+    const cells = activeDays.map((dayActive, di) => {
+      const inRange = dayActive && h >= startH && h < endH;
+      const isNow   = inRange && di === curDay && h === curH;
+      let bg = '#21262d';
+      if (isNow)   bg = 'rgba(0,180,255,.55)';
+      else if (inRange) bg = 'rgba(0,229,160,.55)';
+      return `<td style="padding:2px 3px;text-align:center;"><div style="width:100%;height:14px;background:${bg};border-radius:2px;"></div></td>`;
+    }).join('');
+    return `<tr><td style="color:#6e7681;padding:3px 6px;font-size:.62rem;white-space:nowrap;">${timeLabel}</td>${cells}</tr>`;
+  }).join('');
+}
+
+// Update calendar when time inputs change
+document.addEventListener('change', e => {
+  if (e.target.type === 'time') buildHourCalendar();
+});
+
+// Datos reales desde FastAPI + SQLite
+const apiState = { dashboard: null };
+
+function htmlEscape(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function fmtNumber(value) {
+  return Number(value || 0).toLocaleString('es-CO');
+}
+
+function fmtDecimal(value) {
+  return value === null || value === undefined ? '-' : Number(value).toFixed(2);
+}
+
+function badgeForDecision(decision) {
+  return String(decision || '').toUpperCase() === 'PERMITIDO'
+    ? '<span class="badge-permit">PERMITIDO</span>'
+    : '<span class="badge-deny">DENEGADO</span>';
+}
+
+function accessPersonCell(item) {
+  const name = htmlEscape(item.nombre_completo || item.nombre_detectado || 'Desconocido');
+  const initials = htmlEscape(item.iniciales || '?');
+  const unknownStyle = name === 'Desconocido'
+    ? ' style="background:linear-gradient(135deg,#ff4c6a,#ff8c00)"'
+    : '';
+  return `<div class="d-flex align-items-center gap-2"><div class="avatar"${unknownStyle}>${initials}</div><span>${name}</span></div>`;
+}
+
+function renderStats(data) {
+  const values = document.querySelectorAll('#page-inicio .stat-value');
+  if (values[0]) values[0].textContent = fmtNumber(data.stats.accesos_hoy);
+  if (values[1]) values[1].textContent = fmtNumber(data.stats.personas);
+  if (values[2]) values[2].textContent = fmtNumber(data.stats.desconocidos);
+  if (values[3]) values[3].textContent = fmtNumber(data.stats.denegados_hoy);
+
+  const unknownBadge = document.querySelector("button[onclick=\"showPage('desconocidos')\"] .badge-count");
+  const alertBadge = document.querySelector("button[onclick=\"showPage('alertas')\"] .badge-count");
+  if (unknownBadge) unknownBadge.textContent = fmtNumber(data.stats.desconocidos);
+  if (alertBadge) alertBadge.textContent = fmtNumber(data.stats.alertas);
+
+  if (pages.alertas) {
+    pages.alertas.subtitle = `${fmtNumber(data.stats.alertas)} alertas no leidas`;
+  }
+  if (pages.desconocidos) {
+    pages.desconocidos.subtitle = `${fmtNumber(data.stats.desconocidos)} eventos pendientes de revision`;
+  }
+}
+
+function renderRecentAccesses(items) {
+  const homeBody = document.querySelector('#page-inicio .table-custom tbody');
+  if (homeBody) {
+    homeBody.innerHTML = items.length ? items.slice(0, 5).map(item => `
+      <tr>
+        <td>${accessPersonCell(item)}</td>
+        <td style="color:#8b949e">${htmlEscape(item.timestamp || '-')}</td>
+        <td>${badgeForDecision(item.decision)}</td>
+        <td style="color:${item.decision === 'PERMITIDO' ? 'var(--accent)' : 'var(--accent-red)'}">${fmtDecimal(item.score)}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="4" style="color:#6e7681">Sin accesos registrados todavia.</td></tr>';
+  }
+
+  const historyBody = document.querySelector('#page-historial tbody');
+  if (historyBody) {
+    historyBody.innerHTML = items.length ? items.map(item => `
+      <tr>
+        <td style="color:#6e7681">${item.id}</td>
+        <td>${accessPersonCell(item)}</td>
+        <td style="color:#8b949e">${htmlEscape(item.timestamp || '-')}</td>
+        <td style="color:${item.decision === 'PERMITIDO' ? 'var(--accent)' : 'var(--accent-red)'}">${fmtDecimal(item.score)}</td>
+        <td>${fmtDecimal(item.distancia)}</td>
+        <td>${item.frames_validos ?? 0}/${item.frames_total ?? 0}</td>
+        <td>${badgeForDecision(item.decision)}</td>
+        <td style="font-size:.72rem;color:#6e7681;">${htmlEscape(item.motivo || '-')}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="8" style="color:#6e7681">Sin eventos en SQLite.</td></tr>';
+  }
+
+  const historyHeader = document.querySelector('#page-historial .page-header p');
+  if (historyHeader) historyHeader.textContent = `${items.length} registros cargados desde SQLite`;
+}
+
+function renderPersonas(items) {
+  const grid = document.querySelector('#page-personas > .row.g-3');
+  if (!grid) return;
+
+  const cards = items.map(person => `
+    <div class="col-6 col-md-4 col-xl-3">
+      <div class="person-card">
+        <div class="person-avatar">${htmlEscape(person.iniciales)}</div>
+        <div class="person-name">${htmlEscape(person.nombre_completo)}</div>
+        <div class="person-rol">${htmlEscape(person.rol || 'empleado')}</div>
+        <span class="person-badge ${person.activo ? 'badge-active' : 'badge-inactive'}">${person.activo ? 'Activo' : 'Inactivo'}</span>
+        <div style="font-size:.7rem;color:#6e7681;">${person.total_fotos || 0} fotos · ${person.total_accesos || 0} accesos</div>
+      </div>
+    </div>
+  `).join('');
+
+  grid.innerHTML = cards + `
+    <div class="col-6 col-md-4 col-xl-3">
+      <div class="person-card" style="border-style:dashed;color:#6e7681;justify-content:center;" data-bs-toggle="modal" data-bs-target="#modalPersona">
+        <i class="bi bi-plus-circle" style="font-size:2rem;margin-bottom:8px;"></i>
+        <div style="font-weight:600;">Agregar persona</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderImagenes(items) {
+  const page = document.getElementById('page-imagenes');
+  if (!page) return;
+
+  let select = document.getElementById('imagenesPersonaSelect');
+  const selectWrap = page.querySelector('.mb-3.d-flex.gap-2');
+  if (selectWrap) {
+    selectWrap.innerHTML = `
+      <select id="imagenesPersonaSelect" class="form-select" style="max-width:260px;"></select>
+      <button class="btn btn-accent px-3" style="font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#modalPersona"><i class="bi bi-camera me-2"></i>Capturar con ESP32-CAM</button>
+    `;
+    select = document.getElementById('imagenesPersonaSelect');
+  }
+
+  if (select) {
+    select.innerHTML = items.length
+      ? items.map((person, index) => `<option value="${person.persona_id}" ${index === 0 ? 'selected' : ''}>${htmlEscape(person.nombre_completo)} (${person.imagenes.length})</option>`).join('')
+      : '<option>Sin personas registradas</option>';
+    select.onchange = () => renderImagenesGallery(items, select.value);
+  }
+
+  renderImagenesGallery(items, select?.value || items[0]?.persona_id);
+}
+
+function renderImagenesGallery(items, personaId) {
+  const page = document.getElementById('page-imagenes');
+  const card = page?.querySelector('.card-custom');
+  if (!card) return;
+
+  const person = items.find(item => String(item.persona_id) === String(personaId)) || items[0];
+  if (!person) {
+    card.innerHTML = '<div style="color:#6e7681;">No hay imagenes registradas en base_datos/.</div>';
+    return;
+  }
+
+  const images = person.imagenes || [];
+  const gallery = images.map(image => `
+    <a href="${htmlEscape(image.url)}" target="_blank" style="text-decoration:none;">
+      <div style="aspect-ratio:1;background:#0d1117;border-radius:8px;border:1px solid var(--border-color);overflow:hidden;position:relative;">
+        <img src="${htmlEscape(image.url)}" alt="${htmlEscape(image.archivo)}" style="width:100%;height:100%;object-fit:cover;display:block;">
+        <div style="position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.68);font-size:.62rem;color:#cbd5e1;padding:5px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${htmlEscape(image.archivo)}</div>
+      </div>
+    </a>
+  `).join('');
+
+  card.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div><span class="text-white fw-semibold">${htmlEscape(person.nombre_completo)}</span> <span style="font-size:.75rem;color:#6e7681;margin-left:8px;">${images.length} imagen(es) reales</span></div>
+      <button class="btn btn-sm btn-accent" style="font-size:.75rem;" data-bs-toggle="modal" data-bs-target="#modalPersona"><i class="bi bi-camera me-1"></i>Agregar con ESP32-CAM</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;">
+      ${gallery || '<div style="color:#6e7681;font-size:.83rem;">Esta persona todavia no tiene fotos.</div>'}
+    </div>
+    <div class="mt-3 p-2" style="background:#0d1117;border-radius:8px;font-size:.75rem;color:#6e7681;">
+      <i class="bi bi-info-circle me-1"></i> Estas imagenes salen directamente de la carpeta base_datos/ y SQLite.
+    </div>
+  `;
+}
+
+function renderHorariosPersonas(items) {
+  const list = document.querySelector('#page-horarios .card-custom .d-flex.flex-column.gap-2');
+  if (!list) return;
+  list.innerHTML = items.length ? items.map((person, index) => `
+    <div class="d-flex align-items-center gap-3 p-2 rounded" style="background:#0d1117;cursor:pointer;border:1px solid ${index === 0 ? 'var(--accent)' : 'var(--border-color)'};">
+      <div class="avatar" style="width:32px;height:32px;font-size:.8rem;">${htmlEscape(person.iniciales)}</div>
+      <div><div style="font-size:.85rem;font-weight:600;color:#fff;">${htmlEscape(person.nombre_completo)}</div><div style="font-size:.7rem;color:#6e7681;">Acceso libre</div></div>
+    </div>
+  `).join('') : '<div style="font-size:.83rem;color:#6e7681;">Sin personas registradas.</div>';
+
+  const title = document.querySelector('#page-horarios h6.fw-semibold.text-white.mb-0');
+  if (title) title.textContent = items[0] ? `Horario - ${items[0].nombre_completo}` : 'Horario';
+}
+
+function removeMockPeopleText(data) {
+  document.querySelectorAll('#page-puertas span').forEach(span => {
+    if (span.textContent.includes('Persona real')) {
+      span.textContent = 'Sin accesos registrados';
+    }
+  });
+}
+
+function setMonitorActionStatus(message, tone = 'muted') {
+  const el = document.getElementById('monitorActionStatus');
+  if (!el) return;
+  const colors = { ok: 'var(--accent)', error: 'var(--accent-red)', warn: 'var(--accent-yellow)', muted: '#6e7681' };
+  el.style.color = colors[tone] || colors.muted;
+  el.textContent = message;
+}
+
+function setMonitorOnline(isOnline, message) {
+  const badge = document.getElementById('monitorLiveBadge');
+  const status = document.getElementById('monitorStatusText');
+  if (badge) {
+    badge.style.color = isOnline ? 'var(--accent)' : 'var(--accent-red)';
+    badge.style.borderColor = isOnline ? 'rgba(0,255,136,.2)' : 'rgba(255,68,102,.3)';
+    badge.innerHTML = `<span class="status-dot ${isOnline ? 'dot-green' : 'dot-red'}"></span>${isOnline ? 'EN VIVO' : 'SIN SEÑAL'}`;
+  }
+  if (status) status.textContent = message || (isOnline ? 'Stream activo' : 'Sin respuesta');
+}
+
+function restartMonitorStream() {
+  const img = document.getElementById('monitorStream');
+  const offline = document.getElementById('monitorOffline');
+  if (!img) return;
+  if (window.monitorCaptureFallbackTimer) {
+    clearInterval(window.monitorCaptureFallbackTimer);
+    window.monitorCaptureFallbackTimer = null;
+  }
+  window.monitorUsingCaptureFallback = false;
+  window.monitorStreamMode = 'mjpeg';
+  if (offline) offline.style.display = 'none';
+  img.style.display = 'block';
+  img.src = `/api/esp32/stream?t=${Date.now()}`;
+  setMonitorActionStatus('Reconectando stream...', 'warn');
+}
+
+function handleMonitorStreamError() {
+  if (window.monitorStreamMode === 'mjpeg') {
+    startMonitorCaptureFallback();
+    return;
+  }
+
+  const img = document.getElementById('monitorStream');
+  const offline = document.getElementById('monitorOffline');
+  if (img) img.style.display = 'none';
+  if (offline) offline.style.display = 'block';
+  setMonitorOnline(false, 'Preview no disponible');
+}
+
+function handleMonitorFrameLoaded() {
+  const img = document.getElementById('monitorStream');
+  const offline = document.getElementById('monitorOffline');
+  if (offline) offline.style.display = 'none';
+  if (img) img.style.display = 'block';
+  if (window.monitorStreamMode === 'capture') {
+    setMonitorOnline(true, 'Vista por capturas periodicas');
+  } else if (window.monitorStreamMode === 'mjpeg') {
+    setMonitorOnline(true, 'Stream MJPEG activo');
+  }
+}
+
+function startMonitorCaptureFallback() {
+  const img = document.getElementById('monitorStream');
+  const offline = document.getElementById('monitorOffline');
+  if (!img) return;
+
+  window.monitorUsingCaptureFallback = true;
+  window.monitorStreamMode = 'capture';
+  if (offline) offline.style.display = 'none';
+  img.style.display = 'block';
+  setMonitorActionStatus('Mostrando preview por capturas periodicas.', 'ok');
+
+  const refreshFrame = () => {
+    img.src = `/api/esp32/capture?quality=10&size=vga&t=${Date.now()}`;
+  };
+
+  refreshFrame();
+  if (!window.monitorCaptureFallbackTimer) {
+    window.monitorCaptureFallbackTimer = setInterval(refreshFrame, 900);
+  }
+}
+
+async function refreshMonitorStatus() {
+  try {
+    const response = await fetch('/api/esp32/status', { cache: 'no-store' });
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.error || 'ESP32-CAM sin respuesta');
+    const s = result.data || {};
+    document.getElementById('monitorIp').textContent = result.ip || s.ip || '-';
+    document.getElementById('monitorPir').textContent = s.pir ?? '-';
+    document.getElementById('monitorRelay').textContent = s.relayOn ? 'ON' : 'OFF';
+    document.getElementById('monitorFlash').textContent = s.flashOn ? 'ON' : 'OFF';
+    document.getElementById('monitorVerify').textContent = s.verificationRequested ? 'Pendiente' : 'Sin solicitud';
+    document.getElementById('monitorCaptures').textContent = s.capturesServed ?? '-';
+    document.getElementById('monitorFrames').textContent = s.framesStreamed ?? '-';
+    document.getElementById('monitorRequestId').textContent = s.verificationRequestId ?? '-';
+    document.getElementById('monitorFirmware').textContent = s.firmwareVersion || 'Sin version';
+    setMonitorOnline(true, 'ESP32-CAM conectado');
+  } catch (error) {
+    setMonitorOnline(false, error.message || 'ESP32-CAM sin respuesta');
+  }
+}
+
+async function sendEsp32Action(url, method = 'POST', successMessage = 'Comando ejecutado') {
+  setMonitorActionStatus('Enviando comando...', 'warn');
+  try {
+    const response = await fetch(url, { method });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.error || 'ESP32-CAM sin respuesta');
+    setMonitorActionStatus(successMessage, 'ok');
+    await refreshMonitorStatus();
+    await loadDashboardData();
+  } catch (error) {
+    setMonitorActionStatus(error.message || 'No se pudo ejecutar el comando', 'error');
+  }
+}
+
+async function forceMonitorCapture() {
+  setMonitorActionStatus('Tomando captura...', 'warn');
+  try {
+    const response = await fetch(`/api/esp32/capture?quality=10&size=vga&t=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('No se pudo capturar desde el ESP32-CAM');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const img = document.getElementById('monitorStream');
+    const offline = document.getElementById('monitorOffline');
+    if (img) {
+      img.src = url;
+      img.style.display = 'block';
+    }
+    if (offline) offline.style.display = 'none';
+    setMonitorOnline(true, 'Captura recibida');
+    setMonitorActionStatus('Captura mostrada en el preview.', 'ok');
+    await refreshMonitorStatus();
+  } catch (error) {
+    setMonitorActionStatus(error.message || 'No se pudo tomar captura', 'error');
+  }
+}
+
+function setupLiveMonitor() {
+  if (window.monitorStatusTimer) return;
+  startMonitorCaptureFallback();
+  refreshMonitorStatus();
+  window.monitorStatusTimer = setInterval(refreshMonitorStatus, 2000);
+}
+
+function setupNotificationsPanel() {
+  const configPage = document.getElementById('page-configuracion');
+  if (!configPage || configPage.dataset.notificationsReady === '1') return;
+  configPage.dataset.notificationsReady = '1';
+
+  const cards = Array.from(configPage.querySelectorAll('.card-custom'));
+  const target = cards.find(card => card.innerText.includes('Alertas')) || cards[cards.length - 1];
+  if (!target) return;
+
+  target.innerHTML = `
+    <h6 class="fw-semibold text-white mb-3">Notificaciones</h6>
+    <div class="row g-2 mb-3">
+      <div class="col-6"><label class="form-check" style="font-size:.8rem;"><input id="notify_unknown_enabled" class="form-check-input" type="checkbox"> Desconocido intenta entrar</label></div>
+      <div class="col-6"><label class="form-check" style="font-size:.8rem;"><input id="notify_access_granted_enabled" class="form-check-input" type="checkbox"> Acceso concedido</label></div>
+      <div class="col-6"><label class="form-check" style="font-size:.8rem;"><input id="notify_camera_down_enabled" class="form-check-input" type="checkbox"> Camara caida</label></div>
+      <div class="col-6"><label class="form-check" style="font-size:.8rem;"><input id="notify_manual_relay_enabled" class="form-check-input" type="checkbox"> Relay manual</label></div>
+    </div>
+
+    <div class="section-label">Telegram</div>
+    <label class="form-check mb-2" style="font-size:.8rem;"><input id="telegram_enabled" class="form-check-input" type="checkbox"> Activar Telegram</label>
+    <input id="telegram_bot_token" class="form-control mb-2" placeholder="Bot token">
+    <input id="telegram_chat_id" class="form-control mb-3" placeholder="Chat ID">
+
+    <div class="section-label">WhatsApp</div>
+    <label class="form-check mb-2" style="font-size:.8rem;"><input id="whatsapp_enabled" class="form-check-input" type="checkbox"> Activar WhatsApp</label>
+    <input id="whatsapp_token" class="form-control mb-2" placeholder="Cloud API token">
+    <input id="whatsapp_phone_number_id" class="form-control mb-2" placeholder="Phone number ID">
+    <input id="whatsapp_to" class="form-control mb-3" placeholder="Destino internacional">
+
+    <div class="section-label">Correo</div>
+    <label class="form-check mb-2" style="font-size:.8rem;"><input id="email_enabled" class="form-check-input" type="checkbox"> Activar correo</label>
+    <div class="row g-2 mb-2">
+      <div class="col-8"><input id="smtp_host" class="form-control" placeholder="SMTP host"></div>
+      <div class="col-4"><input id="smtp_port" class="form-control" placeholder="587"></div>
+    </div>
+    <input id="smtp_user" class="form-control mb-2" placeholder="Usuario SMTP">
+    <input id="smtp_password" class="form-control mb-2" type="password" placeholder="Password SMTP">
+    <input id="smtp_from" class="form-control mb-2" placeholder="Remitente">
+    <input id="smtp_to" class="form-control mb-3" placeholder="Destinatarios separados por coma">
+
+    <div class="section-label">App movil</div>
+    <label class="form-check mb-2" style="font-size:.8rem;"><input id="mobile_enabled" class="form-check-input" type="checkbox"> Activar webhook movil</label>
+    <input id="mobile_webhook_url" class="form-control mb-3" placeholder="Webhook URL">
+
+    <div class="row g-2 mb-3">
+      <div class="col-6"><label style="font-size:.72rem;color:#6e7681;">MONITOREO CAMARA</label><select id="camera_monitor_enabled" class="form-select"><option value="1">Activo</option><option value="0">Inactivo</option></select></div>
+      <div class="col-6"><label style="font-size:.72rem;color:#6e7681;">INTERVALO (s)</label><input id="camera_monitor_interval" class="form-control" type="number" min="10" value="30"></div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button class="btn btn-accent flex-fill" onclick="saveNotificationSettings()">Guardar</button>
+      <button class="btn flex-fill" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:8px;" onclick="testNotificationSettings()">Enviar prueba</button>
+    </div>
+    <div id="notificationStatus" style="font-size:.72rem;color:#6e7681;margin-top:10px;">Sin cambios.</div>
+  `;
+
+  loadNotificationSettings();
+}
+
+function notificationFieldIds() {
+  return [
+    'notify_unknown_enabled', 'notify_access_granted_enabled', 'notify_camera_down_enabled', 'notify_manual_relay_enabled',
+    'telegram_enabled', 'telegram_bot_token', 'telegram_chat_id',
+    'whatsapp_enabled', 'whatsapp_token', 'whatsapp_phone_number_id', 'whatsapp_to',
+    'email_enabled', 'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'smtp_from', 'smtp_to',
+    'mobile_enabled', 'mobile_webhook_url', 'camera_monitor_enabled', 'camera_monitor_interval'
+  ];
+}
+
+function setNotificationStatus(message, tone = 'muted') {
+  const el = document.getElementById('notificationStatus');
+  if (!el) return;
+  const colors = { ok: 'var(--accent)', error: 'var(--accent-red)', warn: 'var(--accent-yellow)', muted: '#6e7681' };
+  el.style.color = colors[tone] || colors.muted;
+  el.textContent = message;
+}
+
+async function loadNotificationSettings() {
+  try {
+    const response = await fetch('/api/notificaciones/config', { cache: 'no-store' });
+    const config = await response.json();
+    notificationFieldIds().forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = String(config[id] || '0') === '1';
+      else el.value = config[id] || '';
+    });
+  } catch (error) {
+    setNotificationStatus('No se pudo cargar configuracion.', 'error');
+  }
+}
+
+async function saveNotificationSettings() {
+  const values = {};
+  notificationFieldIds().forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    values[id] = el.type === 'checkbox' ? (el.checked ? '1' : '0') : el.value;
+  });
+  try {
+    const response = await fetch('/api/notificaciones/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values }),
+    });
+    if (!response.ok) throw new Error('No se pudo guardar');
+    setNotificationStatus('Configuracion guardada.', 'ok');
+  } catch (error) {
+    setNotificationStatus(error.message || 'No se pudo guardar.', 'error');
+  }
+}
+
+async function testNotificationSettings() {
+  await saveNotificationSettings();
+  setNotificationStatus('Enviando prueba...', 'warn');
+  try {
+    const response = await fetch('/api/notificaciones/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_type: 'unknown_attempt', message: 'Prueba de FaceGuard desde el dashboard.' }),
+    });
+    const data = await response.json();
+    const sent = (data.results || []).filter(item => item.ok).length;
+    const total = (data.results || []).length;
+    setNotificationStatus(total ? `Prueba enviada: ${sent}/${total} canal(es).` : 'No hay canales activos.', total ? 'ok' : 'warn');
+    await loadDashboardData();
+  } catch (error) {
+    setNotificationStatus(error.message || 'No se pudo enviar prueba.', 'error');
+  }
+}
+
+async function activateManualRelay(ms = 5000) {
+  try {
+    const response = await fetch(`/api/esp32/relay/manual-on?ms=${ms}`, { method: 'POST' });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.error || 'ESP32-CAM sin respuesta');
+    await loadDashboardData();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function setupManualRelayButtons() {
+  document.querySelectorAll('#page-puertas button').forEach(button => {
+    if (button.textContent.trim().toLowerCase() === 'abrir' && button.dataset.relayReady !== '1') {
+      button.dataset.relayReady = '1';
+      button.type = 'button';
+      button.addEventListener('click', () => activateManualRelay(5000));
+    }
+  });
+}
+
+function renderDesconocidos(items) {
+  const grid = document.querySelector('#page-desconocidos .row.g-3');
+  const header = document.querySelector('#page-desconocidos .page-header p');
+  if (header) header.textContent = `${items.length} eventos pendientes de revision`;
+  if (!grid) return;
+
+  grid.innerHTML = items.length ? items.map(item => `
+    <div class="col-md-4">
+      <div class="unknown-card">
+        <div class="unknown-thumb" style="position:relative;">
+          ${item.foto ? `<img src="/${htmlEscape(item.foto)}" alt="Rostro desconocido" style="width:100%;height:100%;object-fit:cover;">` : '<i class="bi bi-person-fill-exclamation"></i>'}
+          <div style="position:absolute;top:8px;right:8px;background:rgba(255,193,7,.2);color:var(--accent-yellow);font-size:.65rem;padding:2px 8px;border-radius:4px;font-weight:700;">PENDIENTE</div>
+        </div>
+        <div class="p-3">
+          <div style="font-size:.72rem;color:#6e7681;">${htmlEscape(item.timestamp || '-')}</div>
+          <div style="font-size:.78rem;color:#c9d1d9;margin-top:4px;">Evento sin identificacion</div>
+        </div>
+      </div>
+    </div>
+  `).join('') : '<div class="col-12"><div class="card-custom" style="color:#6e7681;">No hay rostros desconocidos pendientes.</div></div>';
+}
+
+function renderAlertas(items) {
+  const box = document.querySelector('#page-alertas .card-custom');
+  const header = document.querySelector('#page-alertas .page-header p');
+  if (header) header.textContent = `${items.length} alertas cargadas desde SQLite`;
+  if (!box) return;
+
+  box.innerHTML = items.length ? items.map(item => `
+    <div class="alert-row" style="${item.leida ? 'opacity:.55;' : ''}">
+      <div class="alert-icon-wrap" style="background:rgba(255,193,7,.12);color:var(--accent-yellow);"><i class="bi bi-bell"></i></div>
+      <div class="flex-grow-1">
+        <div style="font-size:.85rem;font-weight:600;color:#fff;">${htmlEscape(item.tipo)}</div>
+        <div style="font-size:.75rem;color:#6e7681;">${htmlEscape(item.mensaje)} · ${htmlEscape(item.timestamp || '')}</div>
+      </div>
+      <span style="font-size:.65rem;color:#6e7681;">${item.leida ? 'Leida' : 'Nueva'}</span>
+    </div>
+  `).join('') : '<div style="font-size:.83rem;color:#6e7681;">No hay alertas registradas.</div>';
+}
+
+function renderTopPersonas(items) {
+  const containers = document.querySelectorAll('#page-estadisticas .card-custom .d-flex.flex-column.gap-3');
+  const box = containers[0];
+  if (!box) return;
+  const max = Math.max(...items.map(i => i.total || 0), 1);
+  box.innerHTML = items.length ? items.map(item => {
+    const width = Math.round(((item.total || 0) / max) * 100);
+    return `<div><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;">${htmlEscape(item.nombre_completo)}</span><span style="font-size:.78rem;color:#6e7681;">${item.total || 0}</span></div><div style="height:6px;background:#21262d;border-radius:3px;"><div style="width:${width}%;height:100%;background:var(--accent);border-radius:3px;"></div></div></div>`;
+  }).join('') : '<div style="font-size:.83rem;color:#6e7681;">Sin accesos registrados.</div>';
+}
+
+function recreateChart(id, config) {
+  const canvas = document.getElementById(id);
+  if (!canvas || typeof Chart === 'undefined') return;
+  const existing = Chart.getChart(canvas);
+  if (existing) existing.destroy();
+  new Chart(canvas, config);
+}
+
+function renderCharts(data) {
+  chartsInited = true;
+  const gridColor = '#1e3348';
+  const tickColor = '#64748b';
+  const baseOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11, family: 'Inter' } } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11, family: 'Inter' } }, beginAtZero: true }
+    }
+  };
+
+  recreateChart('chartHora', {
+    type: 'bar',
+    data: { labels: data.charts.hourly.labels, datasets: [{ data: data.charts.hourly.data, backgroundColor: 'rgba(0,255,136,.55)', borderRadius: 5, borderSkipped: false }] },
+    options: baseOptions
+  });
+
+  recreateChart('chartSemana', {
+    type: 'line',
+    data: {
+      labels: data.charts.weekly.labels,
+      datasets: [
+        { label: 'Permitidos', data: data.charts.weekly.permitidos, borderColor: '#00ff88', backgroundColor: 'rgba(0,255,136,.07)', tension: .4, fill: true, pointRadius: 4, pointBackgroundColor: '#00ff88', borderWidth: 2 },
+        { label: 'Denegados', data: data.charts.weekly.denegados, borderColor: '#ff4466', backgroundColor: 'rgba(255,68,102,.05)', tension: .4, fill: true, pointRadius: 4, pointBackgroundColor: '#ff4466', borderWidth: 2 }
+      ]
+    },
+    options: { ...baseOptions, plugins: { legend: { display: true, labels: { color: '#8b949e', font: { size: 11 } } } } }
+  });
+
+  recreateChart('chartDecision', {
+    type: 'doughnut',
+    data: { labels: ['Permitidos', 'Denegados'], datasets: [{ data: data.charts.decision, backgroundColor: ['#00e5a0', '#ff4c6a'], borderColor: '#161b22', borderWidth: 3 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '72%' }
+  });
+
+  recreateChart('chartHeatmap', {
+    type: 'bar',
+    data: { labels: data.charts.hourly.labels, datasets: [{ data: data.charts.hourly.data, backgroundColor: 'rgba(0,180,255,.5)', borderRadius: 3 }] },
+    options: baseOptions
+  });
+}
+
+async function loadDashboardData() {
+  try {
+    const response = await fetch('/api/dashboard', { cache: 'no-store' });
+    if (!response.ok) throw new Error('No se pudo leer SQLite');
+    const data = await response.json();
+    apiState.dashboard = data;
+    renderStats(data);
+    renderRecentAccesses(data.recent_accesses || []);
+    renderPersonas(data.personas || []);
+    renderImagenes(data.imagenes || []);
+    renderHorariosPersonas(data.personas || []);
+    renderDesconocidos(data.desconocidos || []);
+    renderAlertas(data.alertas || []);
+    renderTopPersonas(data.top_personas || []);
+    renderCharts(data);
+    removeMockPeopleText(data);
+    setupManualRelayButtons();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function setupPersonaCaptureModal() {
+  const modal = document.getElementById('modalPersona');
+  if (!modal || modal.dataset.esp32Ready === '1') return;
+  modal.dataset.esp32Ready = '1';
+
+  const bodyGrid = modal.querySelector('.modal-body .row.g-3');
+  const footer = modal.querySelector('.modal-footer');
+
+  if (bodyGrid) {
+    bodyGrid.innerHTML = `
+      <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOMBRE *</label><input id="personaNombre" type="text" class="form-control" placeholder="Nombre"/></div>
+      <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">APELLIDO</label><input id="personaApellido" type="text" class="form-control" placeholder="Garcia"/></div>
+      <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">EMAIL</label><input id="personaEmail" type="email" class="form-control" placeholder="juan@empresa.com"/></div>
+      <div class="col-6"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">TELEFONO</label><input id="personaTelefono" type="tel" class="form-control" placeholder="+57 300 000 0000"/></div>
+      <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">ROL</label><select id="personaRol" class="form-select"><option value="empleado">Empleado</option><option value="administrador">Administrador</option><option value="visitante">Visitante</option></select></div>
+      <div class="col-12">
+        <label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">FOTO DE ENTRENAMIENTO *</label>
+        <div style="border:2px dashed rgba(0,255,136,.35);border-radius:10px;padding:14px;background:rgba(0,255,136,.04);">
+          <div class="d-flex gap-3 align-items-center">
+            <div id="personaEsp32Preview" style="width:92px;height:92px;background:#090f1c;border:1px solid var(--border-color);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#1e3348;font-size:2.1rem;overflow:hidden;flex-shrink:0;"><i class="bi bi-camera-video"></i></div>
+            <div class="flex-grow-1">
+              <div style="font-size:.86rem;color:#fff;font-weight:700;">Foto con ESP32-CAM</div>
+              <div style="font-size:.72rem;color:#6e7681;margin:4px 0 10px;">VGA, JPEG 10, igual al reconocimiento.</div>
+              <div class="d-flex gap-2 flex-wrap">
+                <button id="personaCaptureEsp32Btn" type="button" class="btn btn-accent btn-sm" onclick="capturePersonFromEsp32()"><i class="bi bi-camera me-1"></i>Tomar foto con ESP32-CAM</button>
+                <button type="button" class="btn btn-sm" style="background:#0d1117;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;" onclick="checkEsp32CaptureReady()"><i class="bi bi-wifi me-1"></i>Probar camara</button>
+              </div>
+              <div id="personaCaptureStatus" style="font-size:.72rem;color:#6e7681;margin-top:8px;">Sin foto capturada.</div>
+            </div>
+          </div>
+          <input id="personaCapturedPath" type="hidden">
+        </div>
+      </div>
+      <div class="col-12"><label style="font-size:.78rem;color:#6e7681;font-weight:600;display:block;margin-bottom:6px;">NOTAS</label><textarea id="personaNotas" class="form-control" rows="2" placeholder="Informacion adicional..."></textarea></div>
+    `;
+  }
+
+  if (footer) {
+    footer.innerHTML = `
+      <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border-color);color:#8b949e;border-radius:7px;" data-bs-dismiss="modal">Cancelar</button>
+      <button id="personaSaveBtn" class="btn btn-accent px-4" onclick="capturePersonFromEsp32()">Guardar con foto ESP32</button>
+    `;
+  }
+}
+
+function setPersonaCaptureStatus(message, tone = 'muted') {
+  const el = document.getElementById('personaCaptureStatus');
+  if (!el) return;
+  const colors = {
+    ok: 'var(--accent)',
+    error: 'var(--accent-red)',
+    warn: 'var(--accent-yellow)',
+    muted: '#6e7681',
+  };
+  el.style.color = colors[tone] || colors.muted;
+  el.textContent = message;
+}
+
+function personaPayload() {
+  return {
+    nombre: document.getElementById('personaNombre')?.value.trim() || '',
+    apellido: document.getElementById('personaApellido')?.value.trim() || '',
+    email: document.getElementById('personaEmail')?.value.trim() || '',
+    telefono: document.getElementById('personaTelefono')?.value.trim() || '',
+    rol: document.getElementById('personaRol')?.value || 'empleado',
+    notas: document.getElementById('personaNotas')?.value.trim() || '',
+    quality: 10,
+    size: 'vga',
+  };
+}
+
+async function checkEsp32CaptureReady() {
+  setPersonaCaptureStatus('Probando conexion con ESP32-CAM...', 'warn');
+  try {
+    const response = await fetch('/api/esp32/version', { cache: 'no-store' });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.error || 'ESP32-CAM sin respuesta');
+    setPersonaCaptureStatus(`ESP32-CAM listo: ${data.data?.firmwareVersion || data.ip}`, 'ok');
+  } catch (error) {
+    setPersonaCaptureStatus(error.message || 'No se pudo contactar el ESP32-CAM.', 'error');
+  }
+}
+
+async function capturePersonFromEsp32() {
+  const payload = personaPayload();
+  if (!payload.nombre) {
+    setPersonaCaptureStatus('Escribe el nombre antes de tomar la foto.', 'warn');
+    document.getElementById('personaNombre')?.focus();
+    return;
+  }
+
+  const buttons = ['personaCaptureEsp32Btn', 'personaSaveBtn']
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+  buttons.forEach(button => button.disabled = true);
+  setPersonaCaptureStatus('Tomando foto desde ESP32-CAM...', 'warn');
+
+  try {
+    const response = await fetch('/api/personas/captura-esp32', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.detail || data.error || 'No se pudo guardar la foto');
+
+    const preview = document.getElementById('personaEsp32Preview');
+    const hidden = document.getElementById('personaCapturedPath');
+    if (hidden) hidden.value = data.ruta;
+    if (preview) {
+      preview.innerHTML = `<img src="${data.url}?t=${Date.now()}" alt="Foto ESP32" style="width:100%;height:100%;object-fit:cover;">`;
+    }
+    setPersonaCaptureStatus('Foto ESP32 guardada y vinculada a SQLite.', 'ok');
+    await loadDashboardData();
+  } catch (error) {
+    setPersonaCaptureStatus(error.message || 'No se pudo tomar la foto.', 'error');
+  } finally {
+    buttons.forEach(button => button.disabled = false);
+  }
+}
+
+window.addEventListener('load', () => {
+  setupPersonaCaptureModal();
+  setupNotificationsPanel();
+  setupManualRelayButtons();
+  setupLiveMonitor();
+  setTimeout(loadDashboardData, 150);
+  document.querySelectorAll('button').forEach(button => {
+    if (button.textContent.includes('Actualizar')) {
+      button.addEventListener('click', loadDashboardData);
+    }
+  });
+});
+</script>
+</body>
+</html>
+

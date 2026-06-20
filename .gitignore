@@ -24,6 +24,9 @@ build/
 # Proyecto — archivos generados automáticamente
 embeddings_cache.pkl
 temp_captures/
+access_control.db
+access_control.db-shm
+access_control.db-wal
 
 # DeepFace legacy cache (pkl dentro de base_datos)
 base_datos/*.pkl

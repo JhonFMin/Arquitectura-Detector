@@ -91,6 +91,9 @@ echo Para activar el entorno luego usa:
 echo   .venv\Scripts\activate
 echo.
 echo Para ejecutar tu proyecto:
-echo   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+echo   python app.py
+echo.
+echo Luego abre:
+echo   http://127.0.0.1:5000
 echo.
 pause
